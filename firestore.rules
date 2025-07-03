@@ -1,0 +1,27 @@
+ service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: Only the user can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Houses: Anyone can read, only the owner can write
+    match /houses/{houseId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // Bookings: Only the user who made the booking or the house owner can read/write
+    match /bookings/{bookingId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Roommate Profiles: Only the user can read/write their own roommate profile
+    match /roommateProfiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
