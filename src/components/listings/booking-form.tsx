@@ -203,17 +203,28 @@ export default function BookingForm({ house }: BookingFormProps) {
     }
   };
 
+  // Add a default shortcode (PayBill or Till number)
+  const DEFAULT_SHORTCODE = '174379'; // Replace with your actual shortcode
+
   // New: handle M-Pesa STK Push
   const handleMpesaPayNow = async () => {
     setPaying(true);
     setPaymentStatus('pending');
     setPaymentError(null);
     setPaymentResponse(null);
+    const amount = pendingBookingData?.bookingFee || bookingFee;
+    const shortcode = pendingBookingData?.shortcode || DEFAULT_SHORTCODE;
+    if (!phone || !amount || !shortcode) {
+      setPaymentStatus('error');
+      setPaymentError('Phone, amount, and shortcode are required');
+      setPaying(false);
+      return;
+    }
     try {
       const res = await fetch('/api/mpesa-stk-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, amount: pendingBookingData?.bookingFee || bookingFee }),
+        body: JSON.stringify({ phone, amount, shortcode }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
