@@ -12,13 +12,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2, ShieldAlertIcon, LogInIcon, ArrowLeftIcon, SaveIcon, Edit3Icon } from 'lucide-react';
 import Link from 'next/link';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import type { House } from '@/lib/mock-data';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const MAX_AMENITIES = 20;
 const MAX_AMENITY_LENGTH = 50;
@@ -29,7 +30,8 @@ const editListingSchema = z.object({
   price: z.coerce.number().min(1, { message: "Price must be a positive number." }),
   bedrooms: z.coerce.number().min(0, { message: "Bedrooms cannot be negative." }).max(10),
   bathrooms: z.coerce.number().min(0, { message: "Bathrooms cannot be negative." }).max(10),
-  imageUrl: z.string().url({ message: "Please enter a valid image URL." }).startsWith("https://placehold.co/", {message: "For now, only placehold.co URLs are accepted."}),
+  availableUnits: z.coerce.number().min(0, { message: "Available units cannot be negative." }),
+  imageUrl: z.string().url({ message: "Please enter a valid image URL." }),
   imageAiHint: z.string().max(50, {message: "AI hint must be 50 characters or less."}).optional(),
   description: z.string().min(20, { message: "Description must be at least 20 characters." }).max(1000),
   amenities: z.string()
@@ -54,11 +56,24 @@ export default function EditListingPage() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingListing, setIsFetchingListing] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   
   const router = useRouter();
   const params = useParams();
   const listingId = params.id as string;
   const { toast } = useToast();
+
+  if (!auth || !db || !storage) {
+    return (
+      <div className="container mx-auto flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center py-12 px-4 text-center">
+        <Card className="w-full max-w-md shadow-lg border-destructive">
+          <CardHeader><ShieldAlertIcon className="mx-auto h-12 w-12 text-destructive mb-3" /><CardTitle>Firebase Not Initialized</CardTitle></CardHeader>
+          <CardContent><p className="text-muted-foreground mb-4">Firebase is not properly initialized. Please check your environment variables and configuration.</p></CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const form = useForm<EditListingFormValues>({
     resolver: zodResolver(editListingSchema),
@@ -68,6 +83,7 @@ export default function EditListingPage() {
   });
 
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user);
@@ -101,9 +117,10 @@ export default function EditListingPage() {
       setLoadingAuth(false);
     });
     return () => unsubscribe();
-  }, [router, toast, listingId]);
+  }, [router, toast, listingId, auth]);
 
   const fetchListingData = async (id: string) => {
+    if (!db) return;
     setIsFetchingListing(true);
     try {
       const listingDocRef = doc(db, 'houses', id);
@@ -117,6 +134,7 @@ export default function EditListingPage() {
           price: data.price,
           bedrooms: data.bedrooms,
           bathrooms: data.bathrooms,
+          availableUnits: data.availableUnits || 0,
           imageUrl: data.imageUrl,
           imageAiHint: data.imageAiHint || '',
           description: data.description,
@@ -139,8 +157,8 @@ export default function EditListingPage() {
 
 
   async function onSubmit(values: EditListingFormValues) {
-    if (!listingId) {
-        toast({ title: "Error", description: "Listing ID is missing for update.", variant: "destructive" });
+    if (!listingId || !db) {
+        toast({ title: "Error", description: "Listing ID or Firestore is missing for update.", variant: "destructive" });
         return;
     }
     setIsSubmitting(true);
@@ -152,6 +170,7 @@ export default function EditListingPage() {
         price: values.price,
         bedrooms: values.bedrooms,
         bathrooms: values.bathrooms,
+        availableUnits: values.availableUnits,
         imageUrl: values.imageUrl,
         imageAiHint: values.imageAiHint || "",
         description: values.description,
@@ -160,7 +179,7 @@ export default function EditListingPage() {
           name: values.agentName,
           phone: values.agentPhone,
         },
-        updatedAt: serverTimestamp(), // Add/update an 'updatedAt' field
+        updatedAt: serverTimestamp(),
       };
 
       await updateDoc(listingDocRef, updatedHouseData);
@@ -181,6 +200,25 @@ export default function EditListingPage() {
       setIsSubmitting(false);
     }
   }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    setImageUploadError(null);
+    try {
+      const storageRef = ref(storage, `property-images/${Date.now()}-${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      form.setValue('imageUrl', downloadURL, { shouldValidate: true });
+      toast({ title: "Image Uploaded", description: "Image uploaded successfully!" });
+    } catch (err: any) {
+      setImageUploadError("Failed to upload image. Please try again.");
+      toast({ title: "Upload Failed", description: err.message || "Failed to upload image.", variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   if (loadingAuth || (isAdmin && isFetchingListing)) {
     return (
@@ -250,7 +288,7 @@ export default function EditListingPage() {
                   <FormMessage />
                 </FormItem>
               )} />
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-4 gap-4">
                 <FormField control={form.control} name="price" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Price (Ksh/month)</FormLabel>
@@ -272,12 +310,30 @@ export default function EditListingPage() {
                     <FormMessage />
                   </FormItem>
                 )} />
+                <FormField control={form.control} name="availableUnits" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Available Units</FormLabel>
+                    <FormControl><Input type="number" min={0} placeholder="1" {...field} /></FormControl>
+                    <FormDescription>How many units are currently available?</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
               </div>
               <FormField control={form.control} name="imageUrl" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Image URL</FormLabel>
-                  <FormControl><Input placeholder="https://placehold.co/600x400.png" {...field} /></FormControl>
-                  <FormDescription>Use a placehold.co URL for now.</FormDescription>
+                  <FormLabel>Property Image</FormLabel>
+                  <FormControl>
+                    <div className="flex flex-col gap-2">
+                      <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+                      {field.value && (
+                        <img src={field.value} alt="Property Preview" className="h-32 w-auto rounded border mt-2" />
+                      )}
+                      <Input placeholder="Image URL will appear here after upload" {...field} readOnly />
+                      {uploadingImage && <span className="text-xs text-muted-foreground">Uploading image...</span>}
+                      {imageUploadError && <span className="text-xs text-red-500">{imageUploadError}</span>}
+                    </div>
+                  </FormControl>
+                  <FormDescription>Upload a property image or paste a direct image URL.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />

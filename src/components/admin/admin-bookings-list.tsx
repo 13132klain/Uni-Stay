@@ -2,14 +2,14 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { collection, getDocs, updateDoc, doc, orderBy, query, type Timestamp, type DocumentData, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, orderBy, query, type Timestamp, type DocumentData, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircleIcon, XCircleIcon, RefreshCwIcon, AlertTriangleIcon, InfoIcon, ClockIcon, HourglassIcon, ShieldCheckIcon, BanIcon, ListFilterIcon, TrendingUpIcon, PrinterIcon } from 'lucide-react';
+import { Loader2, CheckCircleIcon, XCircleIcon, RefreshCwIcon, AlertTriangleIcon, InfoIcon, ClockIcon, HourglassIcon, ShieldCheckIcon, BanIcon, ListFilterIcon, TrendingUpIcon, PrinterIcon, DownloadIcon, SearchIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +50,10 @@ export default function AdminBookingsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'approved', 'rejected'
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -78,8 +81,32 @@ export default function AdminBookingsList() {
   };
 
   useEffect(() => {
-    fetchBookings();
-  }, []);
+    setLoading(true);
+    setError(null);
+    const bookingsCollectionRef = collection(db, 'bookings');
+    const q = query(bookingsCollectionRef, orderBy('requestedAt', 'desc'));
+    const unsubscribe = onSnapshot(q, 
+      (querySnapshot) => {
+        const fetchedBookings = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Booking[];
+        setBookings(fetchedBookings);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error fetching bookings:', err);
+        setError('Failed to load booking requests. Please try again.');
+        toast({
+          title: 'Error Loading Bookings',
+          description: err.message || 'Could not fetch bookings.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [toast]);
 
   const bookingCountsByStatus = useMemo(() => {
     const counts: Record<BookingStatus, number> = {
@@ -98,11 +125,31 @@ export default function AdminBookingsList() {
     return counts;
   }, [bookings]);
 
+  // Filter bookings by search and status
+  const filteredBookings = bookings.filter((b) => {
+    const q = search.toLowerCase();
+    const matchesSearch = (
+      b.houseName?.toLowerCase().includes(q) ||
+      b.userEmail?.toLowerCase().includes(q) ||
+      b.status?.toLowerCase().includes(q)
+    );
+    let matchesStatus = true;
+    if (statusFilter === 'pending') {
+      matchesStatus = b.status === 'pending' || b.status === 'awaiting_manual_payment' || b.status === 'pending_admin_confirmation';
+    } else if (statusFilter === 'approved') {
+      matchesStatus = b.status === 'confirmed';
+    } else if (statusFilter === 'rejected') {
+      matchesStatus = b.status === 'rejected' || b.status === 'cancelled';
+    }
+    return matchesSearch && matchesStatus;
+  });
+
   const handleUpdateStatus = async (bookingId: string, newStatus: Booking['status']) => {
     setUpdatingStatus(prev => ({ ...prev, [bookingId]: true }));
     try {
       const bookingDocRef = doc(db, 'bookings', bookingId);
       const updateData: { status: Booking['status'], adminConfirmedAt?: any, adminRejectedAt?: any } = { status: newStatus };
+      let houseIdToUpdate: string | null = null;
       
       if (newStatus === 'confirmed') {
         updateData.adminConfirmedAt = serverTimestamp();
@@ -110,6 +157,9 @@ export default function AdminBookingsList() {
       } else if (newStatus === 'rejected') {
          updateData.adminRejectedAt = serverTimestamp();
          delete updateData.adminConfirmedAt; 
+         // Set house available again
+         const bookingSnap = await bookingDocRef.get();
+         houseIdToUpdate = bookingSnap.exists() ? bookingSnap.data().houseId : null;
       } else {
         // For other statuses like 'pending_admin_confirmation', clear both admin action timestamps
         // Firestore SDK handles `null` as a valid value to clear fields or you can use `deleteField()`
@@ -129,6 +179,9 @@ export default function AdminBookingsList() {
 
 
       await updateDoc(bookingDocRef, updateData);
+      if (houseIdToUpdate) {
+        await updateDoc(doc(db, 'houses', houseIdToUpdate), { status: 'available' });
+      }
       
       setBookings(prevBookings =>
         prevBookings.map(booking =>
@@ -156,6 +209,55 @@ export default function AdminBookingsList() {
     } finally {
       setUpdatingStatus(prev => ({ ...prev, [bookingId]: false }));
     }
+  };
+
+  const handleDeleteBooking = async (bookingId: string) => {
+    if (!window.confirm('Are you sure you want to delete this booking? This action cannot be undone.')) return;
+    setDeleting(prev => ({ ...prev, [bookingId]: true }));
+    try {
+      const bookingDocRef = doc(db, 'bookings', bookingId);
+      const bookingSnap = await bookingDocRef.get();
+      let houseIdToUpdate = null;
+      if (bookingSnap.exists()) {
+        houseIdToUpdate = bookingSnap.data().houseId;
+      }
+      await deleteDoc(bookingDocRef);
+      if (houseIdToUpdate) {
+        await updateDoc(doc(db, 'houses', houseIdToUpdate), { status: 'available' });
+      }
+      setBookings(prev => prev.filter(b => b.id !== bookingId));
+      toast({ title: 'Booking Deleted', description: 'The booking has been deleted.', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Delete Failed', description: err.message || 'Could not delete booking.', variant: 'destructive' });
+    } finally {
+      setDeleting(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  // Export to CSV
+  const handleExportCSV = () => {
+    const headers = [
+      'House Name', 'Tenant Email', 'Booking Fee', 'Move-in Date', 'Guests', 'Status', 'Requested At', 'Tenant Confirmed Payment', 'Admin Action At'
+    ];
+    const rows = filteredBookings.map(b => [
+      b.houseName,
+      b.userEmail || b.userId,
+      typeof b.bookingFee === 'number' ? b.bookingFee : '',
+      b.moveInDate instanceof Date ? b.moveInDate.toISOString() : (b.moveInDate?.toDate ? b.moveInDate.toDate().toISOString() : ''),
+      b.guests,
+      b.status,
+      b.requestedAt instanceof Date ? b.requestedAt.toISOString() : (b.requestedAt?.toDate ? b.requestedAt.toDate().toISOString() : ''),
+      b.paymentConfirmedByTenantAt instanceof Date ? b.paymentConfirmedByTenantAt.toISOString() : (b.paymentConfirmedByTenantAt?.toDate ? b.paymentConfirmedByTenantAt.toDate().toISOString() : ''),
+      b.adminConfirmedAt instanceof Date ? b.adminConfirmedAt.toISOString() : (b.adminConfirmedAt?.toDate ? b.adminConfirmedAt.toDate().toISOString() : ''),
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bookings.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const formatDate = (timestamp: Timestamp | Date | undefined | null): string => {
@@ -253,14 +355,40 @@ export default function AdminBookingsList() {
   return (
     <div className="space-y-8">
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-3">
           <h2 className="text-xl font-semibold flex items-center">
               <TrendingUpIcon className="mr-2 h-6 w-6 text-primary"/>
               Booking Status Overview
           </h2>
-          <Button onClick={handlePrint} variant="outline" size="sm" className="no-print">
-            <PrinterIcon className="mr-2 h-4 w-4" /> Print List
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <div className="relative">
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search bookings..."
+                className="pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <SearchIcon className="absolute left-2 top-2.5 h-5 w-5 text-muted-foreground" />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              style={{ minWidth: 140 }}
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <Button onClick={handleExportCSV} variant="outline" size="sm" className="no-print">
+              <DownloadIcon className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
+            <Button onClick={handlePrint} variant="outline" size="sm" className="no-print">
+              <PrinterIcon className="mr-2 h-4 w-4" /> Print List
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {statusOrder.map((status) => (
@@ -284,7 +412,7 @@ export default function AdminBookingsList() {
         </div>
       </div>
 
-      {bookings.length === 0 ? (
+      {filteredBookings.length === 0 ? (
         <div className="text-center py-10">
             <InfoIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold">No Booking Requests Found</h3>
@@ -316,7 +444,7 @@ export default function AdminBookingsList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bookings.map((booking) => (
+              {filteredBookings.map((booking) => (
                 <TableRow key={booking.id}>
                   <TableCell className="font-medium">{booking.houseName}</TableCell>
                   <TableCell>{booking.userEmail || booking.userId}</TableCell>
@@ -389,6 +517,17 @@ export default function AdminBookingsList() {
                             Pend Confirm
                           </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteBooking(booking.id)}
+                        disabled={deleting[booking.id]}
+                        className="border-destructive text-destructive hover:bg-destructive hover:text-white"
+                        title="Delete booking"
+                      >
+                        {deleting[booking.id] ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircleIcon className="mr-1 h-4 w-4" />}
+                        Delete
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

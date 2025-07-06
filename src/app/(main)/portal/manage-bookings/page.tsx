@@ -8,10 +8,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import AdminBookingsList from '@/components/admin/admin-bookings-list';
-import { auth, functions as firebaseFunctions, db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+import { getFunctions, httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,7 +28,14 @@ export default function ManageBookingsPage() {
 
   const bootstrapAdminUID = process.env.NEXT_PUBLIC_ALLOW_FIRST_ADMIN_SETUP_FOR_UID;
 
+  // Add this line to get the functions instance
+  const firebaseFunctions = getFunctions();
+
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user);
@@ -49,6 +56,9 @@ export default function ManageBookingsPage() {
 
           if (hasAdminClaim) {
             try {
+              if (!db) {
+                throw new Error("Firebase is not initialized");
+              }
               const userDocRef = doc(db, 'users', user.uid);
               const userDocSnap = await getDoc(userDocRef);
               if (userDocSnap.exists() && userDocSnap.data().admin === true) {
@@ -105,7 +115,7 @@ export default function ManageBookingsPage() {
     }
     if (!firebaseFunctions) {
         toast({ title: "Error", description: "Firebase Functions service not available.", variant: "destructive" });
-        console.error("Firebase Functions service is not initialized in @/lib/firebase.ts");
+        console.error("Firebase Functions service is not initialized");
         return;
     }
 
@@ -247,8 +257,8 @@ export default function ManageBookingsPage() {
       )}
       <div>
         <CardHeader className="px-0 pb-4">
-          <CardTitle className="text-3xl">Manage Booking Requests</CardTitle>
-          <CardDescription>Review and manage all student booking requests.</CardDescription>
+          <CardTitle className="text-3xl">Manage Bookings</CardTitle>
+          <CardDescription>Review and manage all student property bookings and requests.</CardDescription>
         </CardHeader>
         {canManageBookings ? (
             <AdminBookingsList />

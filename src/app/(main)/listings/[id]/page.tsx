@@ -2,7 +2,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { House } from '@/lib/mock-data'; // Keep House type
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import BookingForm from '@/components/listings/booking-form';
+import BookingInstructionModal from '@/components/listings/booking-instruction-modal';
 import ListingFavoriteButton from '@/components/listings/listing-favorite-button';
 import { 
   BedDoubleIcon, BathIcon, DollarSignIcon, WifiIcon, CarIcon, UtensilsIcon, ShieldCheckIcon, 
@@ -60,6 +60,10 @@ const amenityIcons: { [key: string]: React.ElementType } = {
 
 async function getHouseFromFirestore(id: string): Promise<House | null> {
   try {
+    if (!db) {
+      console.error("Firebase is not initialized");
+      return null;
+    }
     const houseDocRef = doc(db, 'houses', id);
     const docSnap = await getDoc(houseDocRef);
 
@@ -81,6 +85,8 @@ async function getHouseFromFirestore(id: string): Promise<House | null> {
         agent: data.agent || { name: 'N/A', phone: 'N/A' },
         createdAt: createdAt,
         ownerId: data.ownerId,
+        status: data.status || 'available',
+        availableUnits: data.availableUnits || 0,
       } as House;
     } else {
       console.log("No such document in Firestore for ID:", id);
@@ -134,6 +140,12 @@ export default async function HouseDetailPage({ params }: HouseDetailPageProps) 
                 <span className="flex items-center font-semibold text-xl">
                   <DollarSignIcon className="h-6 w-6 mr-1 text-primary" /> {house.price.toLocaleString()}<span className="text-sm font-normal text-muted-foreground">/month</span>
                 </span>
+                {typeof house.availableUnits === 'number' && (
+                  <span className="flex items-center ml-4">
+                    <UsersIcon className="h-5 w-5 mr-2 text-primary" />
+                    <span className="font-semibold">{house.availableUnits}</span> unit{house.availableUnits === 1 ? '' : 's'} available
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -185,7 +197,11 @@ export default async function HouseDetailPage({ params }: HouseDetailPageProps) 
 
         <div className="md:col-span-1">
           <div className="sticky top-24">
-            <BookingForm house={house} />
+            {house.status === 'available' ? (
+              <BookingInstructionModal house={house} />
+            ) : (
+              <div className="text-red-600 font-semibold text-lg mt-4">This unit is already booked.</div>
+            )}
           </div>
         </div>
       </div>
@@ -195,6 +211,10 @@ export default async function HouseDetailPage({ params }: HouseDetailPageProps) 
 
 export async function generateStaticParams() {
   try {
+    if (!db) {
+      console.error("Firebase is not initialized");
+      return [];
+    }
     const housesCollectionRef = collection(db, 'houses');
     const querySnapshot = await getDocs(housesCollectionRef);
     const paths = querySnapshot.docs.map((doc) => ({

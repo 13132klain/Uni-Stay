@@ -53,10 +53,14 @@ export default function ListingsPage() {
           amenities: data.amenities || [],
           agent: data.agent || { name: 'N/A', phone: 'N/A' },
           createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate() : new Date(), // Convert Timestamp
+          status: data.status || 'available',
+          availableUnits: data.availableUnits || 0,
         } as House;
       });
-      setAllHouses(fetchedHouses);
-      setDisplayedHouses(fetchedHouses); // Initially display all
+      // Only show available houses with availableUnits > 0
+      const availableHouses = fetchedHouses.filter(house => house.status === 'available' && house.availableUnits > 0);
+      setAllHouses(availableHouses);
+      setDisplayedHouses(availableHouses); // Initially display all available
     } catch (error) {
       console.error("Error fetching listings from Firestore:", error);
       toast({ title: "Error", description: "Could not fetch listings.", variant: "destructive" });

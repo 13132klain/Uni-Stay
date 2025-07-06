@@ -14,7 +14,7 @@ import type { House } from '@/lib/mock-data';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, type Timestamp, query, where, getDocs, type DocumentData } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, type Timestamp, query, where, getDocs, type DocumentData, runTransaction, doc as firestoreDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -39,19 +39,13 @@ export default function BookingForm({ house }: BookingFormProps) {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [showManualPaymentInstructions, setShowManualPaymentInstructions] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [userActiveBookingCheck, setUserActiveBookingCheck] = useState<'idle' | 'loading' | 'has_active' | 'no_active'>('idle');
   const [activeBookingInfo, setActiveBookingInfo] = useState<ExistingBooking | null>(null);
   const [pendingBookingData, setPendingBookingData] = useState<any>(null);
 
   const { toast } = useToast();
-
-  const [phone, setPhone] = useState('');
-  const [paying, setPaying] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [paymentResponse, setPaymentResponse] = useState<any>(null);
-  const phoneInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!auth || !db) {
@@ -152,23 +146,49 @@ export default function BookingForm({ house }: BookingFormProps) {
       });
       return;
     }
-    // Instead of creating booking, store data and open modal
-    setPendingBookingData({
-      userId: currentUser.uid,
-      userEmail: currentUser.email,
-      houseId: house.id,
-      houseName: house.name,
-      houseAddress: house.address,
-      agentName: house.agent.name,
-      agentPhone: house.agent.phone,
-      moveInDate: date,
-      guests: guests,
-      status: 'awaiting_manual_payment',
-      requestedAt: serverTimestamp(),
-      bookingFee: bookingFee,
-      totalRent: house.price,
-    });
-    setShowPaymentModal(true);
+    setIsSubmittingInitialRequest(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const houseRef = firestoreDoc(db, 'houses', house.id);
+        const houseSnap = await transaction.get(houseRef);
+        if (!houseSnap.exists()) {
+          throw new Error('House does not exist.');
+        }
+        const houseData = houseSnap.data();
+        if (typeof houseData.availableUnits !== 'number' || houseData.availableUnits < 1) {
+          throw new Error('No units available for this property.');
+        }
+        // Create booking
+        const bookingRef = doc(collection(db, 'bookings'));
+        transaction.set(bookingRef, {
+          userId: currentUser.uid,
+          userEmail: currentUser.email,
+          houseId: house.id,
+          houseName: house.name,
+          houseAddress: house.address,
+          agentName: house.agent.name,
+          agentPhone: house.agent.phone,
+          moveInDate: date,
+          guests,
+          status: 'awaiting_manual_payment',
+          requestedAt: new Date(),
+          bookingFee,
+          totalRent: house.price,
+        });
+        // Decrement availableUnits, set status to 'booked' if 0
+        const newAvailableUnits = houseData.availableUnits - 1;
+        transaction.update(houseRef, {
+          availableUnits: newAvailableUnits,
+          status: newAvailableUnits === 0 ? 'booked' : 'available',
+        });
+      });
+      toast({ title: "Booking Request Submitted", description: "Your booking request has been submitted. Please follow the payment instructions.", variant: "default" });
+      setShowPaymentModal(true);
+    } catch (error: any) {
+      toast({ title: "Booking Failed", description: error.message || "Could not submit booking request.", variant: "destructive" });
+    } finally {
+      setIsSubmittingInitialRequest(false);
+    }
   };
 
   const handleConfirmPayment = async () => {
@@ -182,11 +202,12 @@ export default function BookingForm({ house }: BookingFormProps) {
       setBookingId(docRef.id);
       setShowManualPaymentInstructions(false);
       setShowPaymentModal(false);
+      setShowSuccessModal(true);
       setUserActiveBookingCheck('has_active');
       setActiveBookingInfo({ id: docRef.id, houseName: house.name, status: 'awaiting_manual_payment'});
       toast({
         title: "Request Received",
-        description: `Your request for ${house.name} is pending. Please proceed with the M-Pesa payment of Ksh ${bookingFee.toLocaleString()}`,
+        description: `Your request for ${house.name} is pending. Please wait for UniStay approval.`,
         variant: "default",
         duration: 7000,
       });
@@ -200,45 +221,6 @@ export default function BookingForm({ house }: BookingFormProps) {
     } finally {
       setIsConfirmingPayment(false);
       setPendingBookingData(null);
-    }
-  };
-
-  // Add a default shortcode (PayBill or Till number)
-  const DEFAULT_SHORTCODE = '174379'; // Replace with your actual shortcode
-
-  // New: handle M-Pesa STK Push
-  const handleMpesaPayNow = async () => {
-    setPaying(true);
-    setPaymentStatus('pending');
-    setPaymentError(null);
-    setPaymentResponse(null);
-    const amount = pendingBookingData?.bookingFee || bookingFee;
-    const shortcode = pendingBookingData?.shortcode || DEFAULT_SHORTCODE;
-    if (!phone || !amount || !shortcode) {
-      setPaymentStatus('error');
-      setPaymentError('Phone, amount, and shortcode are required');
-      setPaying(false);
-      return;
-    }
-    try {
-      const res = await fetch('/api/mpesa-stk-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, amount, shortcode }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPaymentStatus('success');
-        setPaymentResponse(data.data);
-      } else {
-        setPaymentStatus('error');
-        setPaymentError(data.error || 'Failed to initiate payment.');
-      }
-    } catch (err: any) {
-      setPaymentStatus('error');
-      setPaymentError(err.message || 'Failed to initiate payment.');
-    } finally {
-      setPaying(false);
     }
   };
 
@@ -276,6 +258,29 @@ export default function BookingForm({ house }: BookingFormProps) {
     );
   }
 
+  // Check if no units are available
+  if (typeof house.availableUnits === 'number' && house.availableUnits <= 0) {
+    return (
+      <Card className="p-6 border rounded-lg shadow-sm bg-card text-center">
+        <CardHeader>
+          <AlertTriangleIcon className="mx-auto h-10 w-10 text-red-500 mb-3" />
+          <CardTitle className="text-xl font-semibold">No Units Available</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CardDescription className="mb-4 text-muted-foreground">
+            Sorry, all units for <strong className="text-foreground">{house.name}</strong> have been booked.
+          </CardDescription>
+          <p className="text-sm text-muted-foreground mb-4">
+            Please check back later or browse other available properties.
+          </p>
+          <Button asChild className="w-full" variant="outline">
+            <Link href="/listings">Browse Other Properties</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!showPaymentModal && userActiveBookingCheck === 'has_active' && activeBookingInfo && !showManualPaymentInstructions) {
     return (
       <Card className="p-6 border rounded-lg shadow-sm bg-card text-center">
@@ -292,7 +297,7 @@ export default function BookingForm({ house }: BookingFormProps) {
             Please wait for this booking to be resolved (rejected or cancelled) before making a new request.
           </p>
           <Button asChild className="w-full" variant="outline">
-            <Link href="/profile">View My Bookings</Link>
+            <Link href="/profile">View My Profile</Link>
           </Button>
         </CardContent>
       </Card>
@@ -395,45 +400,23 @@ export default function BookingForm({ house }: BookingFormProps) {
               </p>
             </div>
             <div className="text-left p-4 border rounded-md bg-card">
-              <p className="font-medium text-md mb-2">M-Pesa Payment Instructions (STK Push):</p>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground mb-2">
-                <li>Enter your M-Pesa phone number below.</li>
-                <li>Click <strong>Pay Now</strong> to receive a payment prompt on your phone.</li>
-                <li>Approve the payment on your phone to complete the booking.</li>
+              <p className="font-medium text-md mb-2">How to Pay via M-Pesa Till:</p>
+              <ol className="list-decimal list-inside text-sm text-muted-foreground mb-2 space-y-1">
+                <li>Go to <strong>M-Pesa</strong> on your phone.</li>
+                <li>Select <strong>Lipa Na Mpesa</strong>.</li>
+                <li>Click on <strong>Till Number</strong>.</li>
+                <li>Enter Till Number: <strong>3755770</strong></li>
+                <li>Enter the amount: <strong>Ksh {bookingFee.toLocaleString()}</strong></li>
+                <li>Enter your M-Pesa PIN.</li>
+                <li>Confirm payment.</li>
               </ol>
-              <input
-                ref={phoneInputRef}
-                type="tel"
-                className="w-full border rounded px-3 py-2 mt-2 mb-2"
-                placeholder="e.g. 07XXXXXXXX"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                disabled={paying || paymentStatus === 'success'}
-                required
-              />
-              <button
-                type="button"
-                className="w-full bg-primary text-white rounded py-2 font-semibold disabled:opacity-60"
-                onClick={handleMpesaPayNow}
-                disabled={paying || !phone || paymentStatus === 'success'}
-              >
-                {paying ? 'Sending STK Push...' : (paymentStatus === 'success' ? 'STK Push Sent' : 'Pay Now')}
-              </button>
-              {paymentStatus === 'pending' && (
-                <p className="text-sm text-blue-600 mt-2">Waiting for payment prompt on your phone...</p>
-              )}
-              {paymentStatus === 'success' && (
-                <p className="text-sm text-green-600 mt-2">STK Push sent! Please approve the payment on your phone.</p>
-              )}
-              {paymentStatus === 'error' && (
-                <p className="text-sm text-red-600 mt-2">{paymentError}</p>
-              )}
+              <p className="text-xs text-muted-foreground mt-2">After payment, click the button below to confirm your booking request.</p>
             </div>
             <Button
               onClick={handleConfirmPayment}
               className="w-full"
               size="lg"
-              disabled={isConfirmingPayment || paymentStatus !== 'success'}
+              disabled={isConfirmingPayment}
             >
               {isConfirmingPayment ? (
                 <>
@@ -448,8 +431,28 @@ export default function BookingForm({ house }: BookingFormProps) {
               )}
             </Button>
             <p className="text-xs text-muted-foreground mt-3">
-              After payment, click the button above. An admin will verify your booking.
+              After confirmation, UniStay will review your booking. You can track the status in your profile.
             </p>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" className="w-full mt-2">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Booking Request Submitted</DialogTitle>
+            <DialogDescription>
+              Thank you! Your booking request has been received. Please wait for UniStay approval. You can track your booking status in your profile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-center">
+            <ShieldCheckIcon className="mx-auto h-12 w-12 text-green-500 mb-4" />
+            <p className="text-lg font-semibold">Booking Submitted!</p>
+            <p className="text-sm text-muted-foreground mt-2">We will notify you once your booking is approved or if further action is needed.</p>
           </div>
           <DialogFooter>
             <DialogClose asChild>

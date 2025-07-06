@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BedDoubleIcon, BathIcon, MapPinIcon, HeartIcon, Loader2 } from 'lucide-react'; // Removed DollarSignIcon
+import { BedDoubleIcon, BathIcon, MapPinIcon, HeartIcon, Loader2, UsersIcon } from 'lucide-react'; // Removed DollarSignIcon
 import type { House } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -80,6 +80,12 @@ export default function HouseCard({ house, userId, isFavorite, onToggleFavorite 
             <span className="flex items-center">
               <BathIcon className="h-4 w-4 mr-1 text-primary" /> {house.bathrooms} {house.bathrooms === 0 ? 'Shared Bath' : 'Baths'}
             </span>
+            {typeof house.availableUnits === 'number' && house.availableUnits > 0 && (
+              <span className="flex items-center">
+                <UsersIcon className="h-4 w-4 mr-1 text-primary" />
+                <span className="font-semibold">{house.availableUnits}</span> unit{house.availableUnits === 1 ? '' : 's'} available
+              </span>
+            )}
           </div>
            <p className="text-lg font-semibold text-primary">
             Ksh {house.price.toLocaleString()}/month

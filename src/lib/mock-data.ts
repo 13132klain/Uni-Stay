@@ -15,6 +15,9 @@ export type House = {
   };
   imageAiHint?: string;
   createdAt?: any; // For Firestore serverTimestamp
+  status?: string; // 'available' | 'booked' or similar
+  totalUnits?: number;
+  availableUnits?: number;
 };
 
 // mockHouses can still exist for initial data or other purposes,
@@ -369,7 +372,23 @@ export const mockHouses: House[] = [
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Shared Kitchen', 'Shared Bathroom', '24/7 Security', 'Study Area'],
     agent: { name: 'Kevin Klein Omondi', phone: '0799751598' },
     createdAt: new Date(),
-  }
+  },
+  {
+    id: '100',
+    name: 'Grey Demnos',
+    address: '123 Grey Street',
+    price: 12000,
+    bedrooms: 1,
+    bathrooms: 1,
+    imageUrl: 'https://placehold.co/600x400.png',
+    description: 'Modern apartment block with 10 units.',
+    amenities: ['Water', 'Electricity', 'WiFi', 'Security'],
+    agent: { name: 'Grey Demnos Agent', phone: '0700000000' },
+    createdAt: new Date(),
+    status: 'available',
+    totalUnits: 10,
+    availableUnits: 10,
+  },
 ];
 
 
