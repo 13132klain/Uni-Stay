@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { collection, getDocs, updateDoc, doc, orderBy, query, type Timestamp, type DocumentData, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, orderBy, query, type Timestamp, type DocumentData, serverTimestamp, onSnapshot, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -33,12 +33,13 @@ interface Booking extends DocumentData {
   totalRent?: number;
 }
 
-type BookingStatus = Booking['status'];
+type BookingStatus = Booking['status'] | 'awaiting_payment_verification';
 
 const statusOrder: BookingStatus[] = [
   'pending',
   'awaiting_manual_payment',
   'pending_admin_confirmation',
+  'awaiting_payment_verification',
   'confirmed',
   'rejected',
   'cancelled',
@@ -113,13 +114,14 @@ export default function AdminBookingsList() {
       pending: 0,
       awaiting_manual_payment: 0,
       pending_admin_confirmation: 0,
+      awaiting_payment_verification: 0,
       confirmed: 0,
       rejected: 0,
       cancelled: 0,
     };
     bookings.forEach(booking => {
-      if (counts[booking.status] !== undefined) {
-        counts[booking.status]++;
+      if (counts[booking.status as BookingStatus] !== undefined) {
+        counts[booking.status as BookingStatus]!++;
       }
     });
     return counts;
@@ -158,7 +160,7 @@ export default function AdminBookingsList() {
          updateData.adminRejectedAt = serverTimestamp();
          delete updateData.adminConfirmedAt; 
          // Set house available again
-         const bookingSnap = await bookingDocRef.get();
+         const bookingSnap = await getDoc(bookingDocRef);
          houseIdToUpdate = bookingSnap.exists() ? bookingSnap.data().houseId : null;
       } else {
         // For other statuses like 'pending_admin_confirmation', clear both admin action timestamps
@@ -215,20 +217,80 @@ export default function AdminBookingsList() {
     if (!window.confirm('Are you sure you want to delete this booking? This action cannot be undone.')) return;
     setDeleting(prev => ({ ...prev, [bookingId]: true }));
     try {
+      console.log('Starting delete process for booking:', bookingId);
       const bookingDocRef = doc(db, 'bookings', bookingId);
-      const bookingSnap = await bookingDocRef.get();
-      let houseIdToUpdate = null;
-      if (bookingSnap.exists()) {
-        houseIdToUpdate = bookingSnap.data().houseId;
+      const bookingSnap = await getDoc(bookingDocRef);
+      
+      if (!bookingSnap.exists()) {
+        throw new Error('Booking not found');
       }
+      
+      const bookingData = bookingSnap.data();
+      const houseIdToUpdate = bookingData.houseId;
+      console.log('Booking data:', bookingData);
+      console.log('House ID to update:', houseIdToUpdate);
+      
+      // Delete the booking first
+      console.log('Deleting booking document...');
       await deleteDoc(bookingDocRef);
+      console.log('Booking document deleted successfully');
+      
+      // Update the house availability if houseId exists
       if (houseIdToUpdate) {
-        await updateDoc(doc(db, 'houses', houseIdToUpdate), { status: 'available' });
+        try {
+          console.log('Updating house availability for house:', houseIdToUpdate);
+          const houseRef = doc(db, 'houses', houseIdToUpdate);
+          const houseSnap = await getDoc(houseRef);
+          
+          if (houseSnap.exists()) {
+            const houseData = houseSnap.data();
+            console.log('Current house data:', houseData);
+            const currentAvailableUnits = houseData.availableUnits || 0;
+            const totalUnits = houseData.totalUnits || 1;
+            
+            // Increment available units
+            const newAvailableUnits = Math.min(currentAvailableUnits + 1, totalUnits);
+            console.log('Updating available units from', currentAvailableUnits, 'to', newAvailableUnits);
+            
+            // Update house status based on available units
+            let newStatus = 'available';
+            if (newAvailableUnits === 0) {
+              newStatus = 'booked';
+            } else if (newAvailableUnits < totalUnits) {
+              newStatus = 'available'; // Some units available
+            }
+            
+            await updateDoc(houseRef, {
+              availableUnits: newAvailableUnits,
+              status: newStatus,
+            });
+            console.log('House availability updated successfully');
+          } else {
+            console.warn('House document not found:', houseIdToUpdate);
+          }
+        } catch (houseUpdateError: any) {
+          console.error('Error updating house availability:', houseUpdateError);
+          // Don't throw here - booking was deleted successfully
+          toast({ 
+            title: 'Warning', 
+            description: 'Booking deleted but could not update house availability. Please check house status manually.', 
+            variant: 'destructive' 
+          });
+        }
       }
+      
+      // Update local state
       setBookings(prev => prev.filter(b => b.id !== bookingId));
-      toast({ title: 'Booking Deleted', description: 'The booking has been deleted.', variant: 'destructive' });
+      toast({ title: 'Booking Deleted', description: 'The booking has been deleted.', variant: 'default' });
     } catch (err: any) {
-      toast({ title: 'Delete Failed', description: err.message || 'Could not delete booking.', variant: 'destructive' });
+      console.error('Delete booking error:', err);
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      toast({ 
+        title: 'Delete Failed', 
+        description: err.message || 'Could not delete booking. Please try again.', 
+        variant: 'destructive' 
+      });
     } finally {
       setDeleting(prev => ({ ...prev, [bookingId]: false }));
     }
@@ -397,11 +459,11 @@ export default function AdminBookingsList() {
                 <CardTitle className="text-sm font-medium capitalize">
                   {status.replace(/_/g, ' ')}
                 </CardTitle>
-                {getStatusIcon(status, "h-5 w-5 text-muted-foreground !mr-0")}
+                {getStatusIcon(status as Booking['status'], "h-5 w-5 text-muted-foreground !mr-0")}
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {bookingCountsByStatus[status]}
+                  {bookingCountsByStatus[status as BookingStatus]}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Total {status.replace(/_/g, ' ')}
@@ -432,7 +494,9 @@ export default function AdminBookingsList() {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[180px]">House Name</TableHead>
+                <TableHead className="min-w-[160px]">Tenant Name</TableHead>
                 <TableHead className="min-w-[180px]">Tenant Email</TableHead>
+                <TableHead className="min-w-[140px]">Tenant Phone</TableHead>
                 <TableHead>Booking Fee</TableHead>
                 <TableHead className="min-w-[150px]">Move-in Date</TableHead>
                 <TableHead>Guests</TableHead>
@@ -447,7 +511,9 @@ export default function AdminBookingsList() {
               {filteredBookings.map((booking) => (
                 <TableRow key={booking.id}>
                   <TableCell className="font-medium">{booking.houseName}</TableCell>
+                  <TableCell>{booking.userName || 'N/A'}</TableCell>
                   <TableCell>{booking.userEmail || booking.userId}</TableCell>
+                  <TableCell>{booking.userPhone || 'N/A'}</TableCell>
                   <TableCell>
                     {typeof booking.bookingFee === 'number' ? `Ksh ${booking.bookingFee.toLocaleString()}` : 'N/A'}
                   </TableCell>
@@ -475,7 +541,8 @@ export default function AdminBookingsList() {
                   </TableCell>
                   <TableCell className="text-right no-print">
                     <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
-                      {(booking.status === 'pending_admin_confirmation' || booking.status === 'awaiting_manual_payment' || booking.status === 'pending') && (
+                      {/* Show Approve/Reject for pending bookings */}
+                      {(booking.status === 'pending_admin_confirmation' || booking.status === 'awaiting_manual_payment' || booking.status === 'pending' || booking.status === 'awaiting_payment_verification') && (
                         <>
                           <Button
                             variant="outline"
@@ -503,20 +570,56 @@ export default function AdminBookingsList() {
                           </Button>
                         </>
                       )}
-                      {(booking.status === 'confirmed' || booking.status === 'rejected') && (
+                      
+                      {/* Show Approve for rejected bookings */}
+                      {booking.status === 'rejected' && (
                         <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUpdateStatus(booking.id, 'pending_admin_confirmation')} 
-                            disabled={updatingStatus[booking.id]}
-                            className="border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white"
-                            title="Revert status to 'Pending Admin Confirmation'"
-                          >
-                            {updatingStatus[booking.id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {!updatingStatus[booking.id] && <RefreshCwIcon className="mr-1 sm:mr-2 h-4 w-4" />}
-                            Pend Confirm
-                          </Button>
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUpdateStatus(booking.id, 'confirmed')}
+                          disabled={updatingStatus[booking.id]}
+                          className="border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
+                          title="Approve previously rejected booking"
+                        >
+                          {updatingStatus[booking.id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {!updatingStatus[booking.id] && <CheckCircleIcon className="mr-1 sm:mr-2 h-4 w-4" />}
+                          Approve
+                        </Button>
                       )}
+                      
+                      {/* Show Reject for confirmed bookings */}
+                      {booking.status === 'confirmed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUpdateStatus(booking.id, 'rejected')}
+                          disabled={updatingStatus[booking.id]}
+                          className="border-red-500 text-red-600 hover:bg-red-500 hover:text-white"
+                          title="Reject previously confirmed booking"
+                        >
+                          {updatingStatus[booking.id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {!updatingStatus[booking.id] && <XCircleIcon className="mr-1 sm:mr-2 h-4 w-4" />}
+                          Reject
+                        </Button>
+                      )}
+                      
+                      {/* Show Revert button for confirmed/rejected bookings */}
+                      {(['confirmed', 'rejected'] as string[]).includes(booking.status as string) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUpdateStatus(booking.id, 'pending_admin_confirmation')}
+                          disabled={updatingStatus[booking.id]}
+                          className="border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white"
+                          title="Revert status to 'Pending Admin Confirmation'"
+                        >
+                          {updatingStatus[booking.id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {!updatingStatus[booking.id] && <RefreshCwIcon className="mr-1 sm:mr-2 h-4 w-4" />}
+                          Pend Confirm
+                        </Button>
+                      )}
+                      
+                      {/* Delete button for all bookings */}
                       <Button
                         variant="outline"
                         size="sm"

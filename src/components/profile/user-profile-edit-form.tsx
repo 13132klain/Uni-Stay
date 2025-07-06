@@ -18,6 +18,7 @@ import Link from 'next/link';
 
 const profileEditSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
+  phone: z.string().regex(/^0\d{9}$/, { message: "Enter a valid 10-digit Kenyan phone number starting with 0." }),
 });
 
 type ProfileEditFormValues = z.infer<typeof profileEditSchema>;
@@ -44,6 +45,7 @@ export default function UserProfileEditForm({ userId }: UserProfileEditFormProps
     resolver: zodResolver(profileEditSchema),
     defaultValues: {
       fullName: '',
+      phone: '',
     },
   });
 
@@ -62,6 +64,7 @@ export default function UserProfileEditForm({ userId }: UserProfileEditFormProps
           setInitialProfileData(data);
           form.reset({
             fullName: data.fullName || '',
+            phone: data.phone || '',
           });
         } else {
           const currentAuthUser = auth.currentUser;
@@ -92,6 +95,7 @@ export default function UserProfileEditForm({ userId }: UserProfileEditFormProps
       
       const dataToSet: Partial<UserProfileData> = {
         fullName: values.fullName,
+        phone: values.phone,
       };
 
       if (!initialProfileData) {
@@ -161,6 +165,19 @@ export default function UserProfileEditForm({ userId }: UserProfileEditFormProps
                   <FormLabel>Full Name</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Jane Doe" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 0712345678" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

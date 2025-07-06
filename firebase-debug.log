@@ -1,0 +1,79 @@
+[debug] [2025-07-06T20:21:15.413Z] ----------------------------------------------------------------------
+[debug] [2025-07-06T20:21:15.420Z] Command:       /usr/bin/node-22 /usr/local/bin/firebase deploy --only firestore:rules
+[debug] [2025-07-06T20:21:15.420Z] CLI Version:   14.9.0
+[debug] [2025-07-06T20:21:15.420Z] Platform:      linux
+[debug] [2025-07-06T20:21:15.420Z] Node Version:  v22.16.0
+[debug] [2025-07-06T20:21:15.421Z] Time:          Sun Jul 06 2025 23:21:15 GMT+0300 (East Africa Time)
+[debug] [2025-07-06T20:21:15.421Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-07-06T20:21:15.805Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-07-06T20:21:15.806Z] > authorizing via signed-in user (omondiklein@gmail.com)
+[debug] [2025-07-06T20:21:15.807Z] [iam] checking project unistay-e18e3 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2025-07-06T20:21:15.809Z] Checked if tokens are valid: false, expires at: 1751817033563
+[debug] [2025-07-06T20:21:15.809Z] Checked if tokens are valid: false, expires at: 1751817033563
+[debug] [2025-07-06T20:21:15.809Z] > refreshing access token with scopes: []
+[debug] [2025-07-06T20:21:15.814Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-07-06T20:21:15.815Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-06T20:21:16.912Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-07-06T20:21:16.914Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-06T20:21:16.945Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/unistay-e18e3:testIamPermissions [none]
+[debug] [2025-07-06T20:21:16.945Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/unistay-e18e3:testIamPermissions x-goog-quota-user=projects/unistay-e18e3
+[debug] [2025-07-06T20:21:16.946Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/unistay-e18e3:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2025-07-06T20:21:24.314Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/unistay-e18e3:testIamPermissions 200
+[debug] [2025-07-06T20:21:24.315Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/unistay-e18e3:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'unistay-e18e3'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: reading indexes from firestore.indexes.json... 
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2025-07-06T20:21:24.325Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:24.325Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:24.326Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3:test [none]
+[debug] [2025-07-06T20:21:24.326Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3:test [omitted]
+[debug] [2025-07-06T20:21:31.242Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3:test 200
+[debug] [2025-07-06T20:21:31.242Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3:test {"issues":[{"sourcePosition":{"fileName":"firestore.rules"},"description":"Ruleset uses old version (version [1]). Please update to the latest version (version [2]).","severity":"WARNING"}]}
+[warn] ⚠  [W] undefined:undefined - Ruleset uses old version (version [1]). Please update to the latest version (version [2]). 
+[info] ✔  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2025-07-06T20:21:31.246Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:31.246Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:31.246Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/unistay-e18e3/databases/(default) [none]
+[debug] [2025-07-06T20:21:37.892Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/unistay-e18e3/databases/(default) 200
+[debug] [2025-07-06T20:21:37.893Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/unistay-e18e3/databases/(default) {"name":"projects/unistay-e18e3/databases/(default)","uid":"2eee3177-298a-41c6-80cd-55413dcbb85d","createTime":"2025-05-30T10:33:17.659265Z","updateTime":"2025-05-30T10:33:17.659265Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2025-07-06T19:21:37.747648Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"etag":"IPv4q8uHqY4DMKmvmeuEy40D"}
+[debug] [2025-07-06T20:21:37.897Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:37.898Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:37.902Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/releases pageSize=10&pageToken=
+[debug] [2025-07-06T20:21:45.014Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/releases 200
+[debug] [2025-07-06T20:21:45.015Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/releases {"releases":[{"name":"projects/unistay-e18e3/releases/cloud.firestore","rulesetName":"projects/unistay-e18e3/rulesets/3051cb0a-5f31-47da-8c16-55239bedab98","createTime":"2025-05-30T10:33:24.514717Z","updateTime":"2025-07-06T15:01:54.422909Z"},{"name":"projects/unistay-e18e3/releases/firebase.storage/unistay-e18e3.firebasestorage.app","rulesetName":"projects/unistay-e18e3/rulesets/547b4f8e-cc04-41cd-b277-de4f8656dc82","createTime":"2025-07-04T15:28:15.267285Z","updateTime":"2025-07-04T15:32:56.530942Z"}]}
+[debug] [2025-07-06T20:21:45.046Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:45.046Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:45.046Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/rulesets/3051cb0a-5f31-47da-8c16-55239bedab98 [none]
+[debug] [2025-07-06T20:21:45.878Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/rulesets/3051cb0a-5f31-47da-8c16-55239bedab98 200
+[debug] [2025-07-06T20:21:45.878Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/rulesets/3051cb0a-5f31-47da-8c16-55239bedab98 [omitted]
+[info] i  firestore: uploading rules firestore.rules... 
+[debug] [2025-07-06T20:21:45.921Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:45.921Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:45.931Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/rulesets [none]
+[debug] [2025-07-06T20:21:45.934Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/rulesets [omitted]
+[debug] [2025-07-06T20:21:47.237Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/rulesets 200
+[debug] [2025-07-06T20:21:47.238Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/rulesets {"name":"projects/unistay-e18e3/rulesets/c038742c-a6e9-4166-a019-ba82a1f717d4","source":{"files":[{"content":" service cloud.firestore {\n  match /databases/{database}/documents {\n\n    // Users: Only the user can read/write their own profile\n    match /users/{userId} {\n      allow read, write: if request.auth != null && request.auth.uid == userId;\n    }\n\n    // Houses: Anyone can read, only the owner or admin can write\n    match /houses/{houseId} {\n      allow read: if true;\n      allow write: if request.auth != null && (\n        request.auth.uid == resource.data.ownerId ||\n        request.auth.token.admin == true\n      );\n    }\n\n    // Bookings: Only the user who made the booking, the house owner, or an admin can read/write\n    match /bookings/{bookingId} {\n      allow read: if request.auth != null && (\n        request.auth.uid == resource.data.userId ||\n        request.auth.token.admin == true\n      );\n      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;\n      allow update, delete: if request.auth != null && (\n        request.auth.uid == resource.data.userId ||\n        request.auth.token.admin == true\n      );\n    }\n\n    // Inquiries: Users can create and read their own inquiries, admins can read and update all\n    match /inquiries/{inquiryId} {\n      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;\n      allow read: if request.auth != null && (\n        request.auth.uid == resource.data.userId || \n        request.auth.token.admin == true\n      );\n      allow update: if request.auth != null && request.auth.token.admin == true;\n      allow delete: if request.auth != null && request.auth.token.admin == true;\n    }\n\n    // Roommate Profiles: Only the user can read/write their own roommate profile\n    match /roommateProfiles/{userId} {\n      allow read, write: if request.auth != null && request.auth.uid == userId;\n    }\n\n    // Payments: Users can create and read their own payments, admins can read all\n    match /payments/{paymentId} {\n      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;\n      allow read: if request.auth != null && (\n        request.auth.uid == resource.data.userId || \n        request.auth.token.admin == true\n      );\n      allow update: if request.auth != null && request.auth.token.admin == true;\n    }\n  }\n}","name":"firestore.rules"}]},"createTime":"2025-07-06T20:21:46.717887Z","metadata":{"services":["cloud.firestore"]}}
+[debug] [2025-07-06T20:21:47.238Z] [rules] created ruleset projects/unistay-e18e3/rulesets/c038742c-a6e9-4166-a019-ba82a1f717d4
+[debug] [2025-07-06T20:21:47.240Z] [rules] releasing cloud.firestore/(default) with ruleset projects/unistay-e18e3/rulesets/c038742c-a6e9-4166-a019-ba82a1f717d4
+[debug] [2025-07-06T20:21:47.241Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:47.241Z] Checked if tokens are valid: true, expires at: 1751836875915
+[debug] [2025-07-06T20:21:47.241Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/releases/cloud.firestore/(default) [none]
+[debug] [2025-07-06T20:21:47.242Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/releases/cloud.firestore/(default) {"release":{"name":"projects/unistay-e18e3/releases/cloud.firestore/(default)","rulesetName":"projects/unistay-e18e3/rulesets/c038742c-a6e9-4166-a019-ba82a1f717d4"}}
+[debug] [2025-07-06T20:21:48.192Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/releases/cloud.firestore/(default) 200
+[debug] [2025-07-06T20:21:48.192Z] <<< [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/unistay-e18e3/releases/cloud.firestore/(default) {"name":"projects/unistay-e18e3/releases/cloud.firestore","rulesetName":"projects/unistay-e18e3/rulesets/c038742c-a6e9-4166-a019-ba82a1f717d4","createTime":"2025-05-30T10:33:24.514717Z","updateTime":"2025-07-06T20:21:47.673628Z"}
+[debug] [2025-07-06T20:21:48.193Z] [rules] updated release projects/unistay-e18e3/releases/cloud.firestore
+[info] ✔  firestore: released rules firestore.rules to cloud.firestore 
+[info] 
+[info] ✔  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/unistay-e18e3/overview
+[debug] [2025-07-06T20:21:57.398Z] Error: Timed out.
+    at Timeout.<anonymous> (/usr/local/lib/node_modules/firebase-tools/lib/utils.js:267:49)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)
+[error] 
+[error] Error: An unexpected error has occurred.

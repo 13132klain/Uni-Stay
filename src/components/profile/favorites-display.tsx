@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, type DocumentData } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, type DocumentData, collection, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import HouseCard from '@/components/listings/house-card';
@@ -52,13 +52,31 @@ export default function FavoritesDisplay({ userId }: FavoritesDisplayProps) {
         const userData = userDocSnap.data() as UserProfileData;
         const currentFavoriteIds = userData.favoriteHouseIds || [];
         setFavoriteHouseIds(currentFavoriteIds);
-        
-        const fetchedHouses = mockHouses.filter(house => currentFavoriteIds.includes(house.id));
+        let fetchedHouses: House[] = [];
+        if (currentFavoriteIds.length > 0) {
+          // Fetch all favorite houses from Firestore
+          const housesRef = collection(db, 'houses');
+          const q = query(housesRef, where('__name__', 'in', currentFavoriteIds.slice(0, 10)));
+          // Firestore 'in' queries are limited to 10 items per query
+          const querySnapshot = await getDocs(q);
+          fetchedHouses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as House));
+          // If more than 10, fetch in batches
+          if (currentFavoriteIds.length > 10) {
+            for (let i = 10; i < currentFavoriteIds.length; i += 10) {
+              const batchIds = currentFavoriteIds.slice(i, i + 10);
+              const batchQ = query(housesRef, where('__name__', 'in', batchIds));
+              const batchSnap = await getDocs(batchQ);
+              fetchedHouses = [
+                ...fetchedHouses,
+                ...batchSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as House)),
+              ];
+            }
+          }
+        }
         setFavoriteHouses(fetchedHouses);
       } else {
         setFavoriteHouseIds([]);
         setFavoriteHouses([]);
-        // No error, just means no favorites or no profile yet.
       }
     } catch (err: any) {
       console.error('Error fetching favorites:', err);

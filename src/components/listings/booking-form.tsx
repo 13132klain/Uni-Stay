@@ -14,7 +14,7 @@ import type { House } from '@/lib/mock-data';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, type Timestamp, query, where, getDocs, type DocumentData, runTransaction, doc as firestoreDoc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, type Timestamp, query, where, getDocs, type DocumentData, runTransaction, doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -148,6 +148,18 @@ export default function BookingForm({ house }: BookingFormProps) {
     }
     setIsSubmittingInitialRequest(true);
     try {
+      let userPhone = '';
+      let userName = '';
+      try {
+        const userProfileRef = firestoreDoc(db, 'users', currentUser.uid);
+        const userProfileSnap = await getDoc(userProfileRef);
+        if (userProfileSnap.exists()) {
+          userPhone = userProfileSnap.data().phone || '';
+          userName = userProfileSnap.data().fullName || '';
+        }
+      } catch (err) {
+        console.warn('Could not fetch user profile for phone/name:', err);
+      }
       await runTransaction(db, async (transaction) => {
         const houseRef = firestoreDoc(db, 'houses', house.id);
         const houseSnap = await transaction.get(houseRef);
@@ -163,6 +175,8 @@ export default function BookingForm({ house }: BookingFormProps) {
         transaction.set(bookingRef, {
           userId: currentUser.uid,
           userEmail: currentUser.email,
+          userPhone, // <-- add phone number
+          userName,  // <-- add full name
           houseId: house.id,
           houseName: house.name,
           houseAddress: house.address,

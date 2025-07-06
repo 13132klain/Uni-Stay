@@ -6,10 +6,13 @@
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Houses: Anyone can read, only the owner can write
+    // Houses: Anyone can read, only the owner or admin can write
     match /houses/{houseId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      allow write: if request.auth != null && (
+        request.auth.uid == resource.data.ownerId ||
+        request.auth.token.admin == true
+      );
     }
 
     // Bookings: Only the user who made the booking, the house owner, or an admin can read/write

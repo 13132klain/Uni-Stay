@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { UserPlusIcon, Loader2 } from 'lucide-react';
+import { UserPlusIcon, Loader2, EyeIcon, EyeOffIcon } from 'lucide-react';
 import { auth, db } from '@/lib/firebase'; // Import Firebase auth and db
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'; // Import Firestore functions
@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 const formSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email address." }),
+  phone: z.string().regex(/^0\d{9}$/, { message: "Enter a valid 10-digit Kenyan phone number starting with 0." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -33,12 +34,15 @@ export default function SignUpForm() {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: '',
       email: '',
+      phone: '',
       password: '',
       confirmPassword: '',
     },
@@ -54,6 +58,7 @@ export default function SignUpForm() {
       await setDoc(doc(db, "users", user.uid), {
         fullName: values.fullName,
         email: values.email,
+        phone: values.phone,
         createdAt: serverTimestamp(),
         favoriteHouseIds: [],
       });
@@ -122,14 +127,46 @@ export default function SignUpForm() {
             />
             <FormField
               control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 0712345678" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="password"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        {...field}
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground focus:outline-none"
+                        tabIndex={-1}
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </FormControl>
                   <FormMessage />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Forgot your password? You can reset it from the <a href="/auth/login" className="underline">login page</a>.
+                  </p>
                 </FormItem>
               )}
             />
@@ -140,7 +177,23 @@ export default function SignUpForm() {
                 <FormItem>
                   <FormLabel>Confirm Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        {...field}
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground focus:outline-none"
+                        tabIndex={-1}
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -10,7 +10,9 @@ import Link from 'next/link';
 import { UserCircleIcon, MailIcon, Edit3Icon, Loader2, AlertTriangleIcon, CalendarDaysIcon, HeartIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import UserInquiriesDisplay from './user-inquiries-display';
+import jsPDF from 'jspdf';
+import JsBarcode from 'jsbarcode';
+import { createCanvas } from 'canvas';
 
 type UserProfileDisplayProps = {
   userId: string;
@@ -21,6 +23,7 @@ interface UserProfileData extends DocumentData {
   email?: string;
   createdAt?: { seconds: number; nanoseconds: number } | Date;
   favoriteHouseIds?: string[];
+  phone?: string;
 }
 
 export default function UserProfileDisplay({ userId }: UserProfileDisplayProps) {
@@ -112,6 +115,94 @@ export default function UserProfileDisplay({ userId }: UserProfileDisplayProps) 
     }
   };
 
+  const handleDownloadReceipt = (booking: any) => {
+    const doc = new jsPDF();
+    // Colors
+    const orange = '#FF8800';
+    const deepBlue = '#1A237E';
+
+    // Header bar
+    doc.setFillColor(deepBlue);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setFontSize(28);
+    doc.setTextColor(255,255,255);
+    doc.text('UniStay', 105, 20, { align: 'center' });
+
+    // Watermark
+    doc.saveGraphicsState();
+    doc.setTextColor(230, 230, 230);
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    doc.text('UniStay', 105, 100, { align: 'center', angle: 30, opacity: 0.15 });
+    doc.restoreGraphicsState();
+    doc.setFont('helvetica', 'normal');
+
+    // Title
+    doc.setFontSize(16);
+    doc.setTextColor(orange);
+    doc.text('Booking Payment Receipt', 105, 38, { align: 'center' });
+
+    // Section background
+    doc.setFillColor(255, 248, 240); // light orange tint
+    doc.roundedRect(15, 45, 180, 60, 4, 4, 'F');
+
+    // Tenant Name
+    doc.setFontSize(13);
+    doc.setTextColor(deepBlue);
+    doc.text('Tenant Name:', 25, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0,0,0);
+    doc.text(`${profile?.fullName || ''}`, 70, 60);
+    doc.setFont('helvetica', 'normal');
+
+    // Date
+    doc.setTextColor(deepBlue);
+    doc.text('Date:', 25, 70);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0,0,0);
+    doc.text(`${booking.requestedAt?.toDate ? booking.requestedAt.toDate().toLocaleString() : ''}`, 70, 70);
+    doc.setFont('helvetica', 'normal');
+
+    // Booking Ref/ID
+    doc.setTextColor(deepBlue);
+    doc.text('Booking Ref:', 25, 80);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0,0,0);
+    doc.text(`${booking.id}`, 70, 80);
+    doc.setFont('helvetica', 'normal');
+
+    // Phone Number
+    doc.setTextColor(deepBlue);
+    doc.text('Phone Number:', 25, 90);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0,0,0);
+    doc.text(`${profile?.phone || ''}`, 70, 90);
+    doc.setFont('helvetica', 'normal');
+
+    // Custom Message Section
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(15, 110, 180, 20, 4, 4, 'F');
+    doc.setFontSize(13);
+    doc.setTextColor(orange);
+    doc.text('Thank you for booking with UniStay!', 105, 123, { align: 'center' });
+
+    // Barcode for booking ID
+    const canvas = createCanvas();
+    JsBarcode(canvas, booking.id, { format: 'CODE128', width: 2, height: 40, displayValue: false });
+    const barcodeDataUrl = canvas.toDataURL('image/png');
+    doc.addImage(barcodeDataUrl, 'PNG', 55, 135, 100, 20);
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(deepBlue);
+    doc.text('UniStay • Simple • Transparent • Honest', 105, 165, { align: 'center' });
+    doc.setTextColor(150);
+    doc.text('For support, contact info@unistay.co.ke', 105, 171, { align: 'center' });
+
+    // Save PDF
+    doc.save(`unistay-receipt-${booking.id}.pdf`);
+  };
+
   const formatDate = (timestamp: { seconds: number; nanoseconds: number } | Timestamp | Date | undefined): string => {
     if (!timestamp) return 'N/A';
     if (timestamp instanceof Date) {
@@ -198,18 +289,24 @@ export default function UserProfileDisplay({ userId }: UserProfileDisplayProps) 
           <CardContent className="px-4 sm:px-8 space-y-4">
             <div className="flex flex-col sm:flex-row">
               <h3 className="font-semibold flex items-center w-full sm:w-1/3 mb-1 sm:mb-0">
-                <UserCircleIcon className="mr-2 h-5 w-5 text-primary shrink-0" />
-                Full Name
+                Name:
               </h3>
-              <p className="text-foreground sm:w-2/3">{profile.fullName || 'Not set'}</p>
+              <span className="w-full sm:w-2/3">{profile.fullName || 'N/A'}</span>
             </div>
             <div className="flex flex-col sm:flex-row">
               <h3 className="font-semibold flex items-center w-full sm:w-1/3 mb-1 sm:mb-0">
-                <MailIcon className="mr-2 h-5 w-5 text-primary shrink-0" />
-                Email
+                Email:
               </h3>
-              <p className="text-foreground sm:w-2/3">{profile.email || 'Not set'}</p>
+              <span className="w-full sm:w-2/3">{profile.email || 'N/A'}</span>
             </div>
+            {profile.phone && (
+              <div className="flex flex-col sm:flex-row">
+                <h3 className="font-semibold flex items-center w-full sm:w-1/3 mb-1 sm:mb-0">
+                  Phone:
+                </h3>
+                <span className="w-full sm:w-2/3">{profile.phone}</span>
+              </div>
+            )}
             {profile.createdAt && (
               <div className="flex flex-col sm:flex-row">
                 <h3 className="font-semibold flex items-center w-full sm:w-1/3 mb-1 sm:mb-0">
@@ -266,17 +363,13 @@ export default function UserProfileDisplay({ userId }: UserProfileDisplayProps) 
                     <div className="text-sm text-muted-foreground">Status: <span className="capitalize">{booking.status.replace(/_/g, ' ')}</span></div>
                     <div className="text-sm text-muted-foreground">Requested: {booking.requestedAt?.toDate ? booking.requestedAt.toDate().toLocaleString() : ''}</div>
                   </div>
-                  {['pending', 'awaiting_manual_payment', 'pending_admin_confirmation', 'confirmed'].includes(booking.status) && (
-                    <Button
-                      variant="outline"
-                      className="mt-3 sm:mt-0"
-                      onClick={() => handleCancelBooking(booking)}
-                      disabled={cancelling[booking.id]}
-                    >
-                      {cancelling[booking.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Cancel Booking
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    className="mt-3 sm:mt-0"
+                    onClick={() => handleDownloadReceipt(booking)}
+                  >
+                    Download Receipt
+                  </Button>
                 </Card>
               ))}
             </div>
@@ -284,7 +377,6 @@ export default function UserProfileDisplay({ userId }: UserProfileDisplayProps) 
         </CardContent>
       </Card>
 
-      <UserInquiriesDisplay userId={userId} />
     </div>
   );
 }
