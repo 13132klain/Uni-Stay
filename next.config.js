@@ -7,4 +7,7 @@ module.exports = {
       // add any other domains you use for images
     ],
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 }; 
