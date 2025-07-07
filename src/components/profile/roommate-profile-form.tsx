@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc, setDoc, serverTimestamp, type DocumentData } from 'firebase/firestore';
+import { onSnapshot, doc, getDoc, setDoc, serverTimestamp, type DocumentData, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { Loader2, SaveIcon, UsersIcon, ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -46,6 +46,8 @@ interface RoommateProfileData extends DocumentData {
   contactInstructions?: string;
   updatedAt?: any;
   createdAt?: any;
+  pairRequests?: string[]; // New field for pending requests
+  matchedWith?: string | null; // New field for current pairing
 }
 
 type RoommateProfileFormProps = {
@@ -57,6 +59,11 @@ export default function RoommateProfileForm({ userId }: RoommateProfileFormProps
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
+  const [profileData, setProfileData] = useState<RoommateProfileData | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<string[]>([]);
+  const [matchedWith, setMatchedWith] = useState<string | null>(null);
+  const [pendingRequestProfiles, setPendingRequestProfiles] = useState<any[]>([]);
+  const [matchedWithProfile, setMatchedWithProfile] = useState<any | null>(null);
 
   const form = useForm<RoommateProfileFormValues>({
     resolver: zodResolver(roommateProfileSchema),
@@ -73,66 +80,44 @@ export default function RoommateProfileForm({ userId }: RoommateProfileFormProps
     },
   });
 
+  // Helper to fetch roommate profile data for a userId
+  async function fetchRoommateProfile(userId: string) {
+    const snap = await getDoc(doc(db, 'roommateProfiles', userId));
+    return snap.exists() ? { id: userId, ...snap.data() } : null;
+  }
+
   useEffect(() => {
-    const fetchProfileAndUserData = async () => {
-      if (!userId) {
-        setIsFetchingProfile(false);
-        toast({ title: "Error", description: "User ID not found.", variant: "destructive" });
-        return;
-      }
-      setIsFetchingProfile(true);
-      try {
-        const userDocRef = doc(db, 'users', userId);
-        const roommateProfileDocRef = doc(db, 'roommateProfiles', userId);
+    if (!userId) return;
 
-        const [userDocSnap, roommateProfileDocSnap] = await Promise.all([
-          getDoc(userDocRef),
-          getDoc(roommateProfileDocRef),
-        ]);
+    const unsubscribe = onSnapshot(doc(db, 'roommateProfiles', userId), async (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as RoommateProfileData;
+        setProfileData(data);
+        setPendingRequests(data.pairRequests || []);
+        setMatchedWith(data.matchedWith || null);
 
-        let currentFullName = auth.currentUser?.displayName || '';
-        if (userDocSnap.exists()) {
-          currentFullName = userDocSnap.data()?.fullName || currentFullName;
-        }
-        
-        if (!currentFullName && auth.currentUser?.email) {
-            currentFullName = auth.currentUser.email.split('@')[0]; // Fallback to email prefix
-        }
-        if (!currentFullName) {
-            currentFullName = "UniStay User"; // Absolute fallback
-        }
-
-
-        if (roommateProfileDocSnap.exists()) {
-          const data = roommateProfileDocSnap.data() as RoommateProfileData;
-          form.reset({
-            fullName: data.fullName || currentFullName,
-            course: data.course || '',
-            yearOfStudy: data.yearOfStudy || '',
-            gender: data.gender || '',
-            bio: data.bio || '',
-            interests: (data.interests || []).join(', '),
-            lookingFor: data.lookingFor || '',
-            preferredContact: data.preferredContact || '',
-            contactInstructions: data.contactInstructions || '',
-          });
+        // Fetch profiles for pending requests
+        if (data.pairRequests && data.pairRequests.length > 0) {
+          const profiles = await Promise.all(
+            data.pairRequests.map((id: string) => fetchRoommateProfile(id))
+          );
+          setPendingRequestProfiles(profiles.filter(Boolean));
         } else {
-           form.reset({
-            ...form.getValues(), 
-            fullName: currentFullName, 
-            preferredContact: auth.currentUser?.email || '', // Pre-fill contact with user's email
-          });
-          toast({ title: "Info", description: "Create your roommate profile. Your name & email are pre-filled.", variant: "default" });
+          setPendingRequestProfiles([]);
         }
-      } catch (error) {
-        console.error("Error fetching roommate profile and user data:", error);
-        toast({ title: "Error", description: "Could not load profile data.", variant: "destructive" });
-      } finally {
-        setIsFetchingProfile(false);
+
+        // Fetch profile for matchedWith
+        if (data.matchedWith) {
+          const matchedProfile = await fetchRoommateProfile(data.matchedWith);
+          setMatchedWithProfile(matchedProfile);
+        } else {
+          setMatchedWithProfile(null);
+        }
       }
-    };
-    fetchProfileAndUserData();
-  }, [userId, form, toast]);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
 
   async function onSubmit(values: RoommateProfileFormValues) {
     setIsLoading(true);
@@ -210,6 +195,98 @@ export default function RoommateProfileForm({ userId }: RoommateProfileFormProps
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Pending Requests Section */}
+        {pendingRequestProfiles.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-2">Pending Pair Requests</h3>
+            <ul>
+              {pendingRequestProfiles.map((profile) => (
+                <li key={profile.id} className="flex items-center gap-2 mb-2">
+                  <img src={profile.avatarUrl} alt={profile.fullName} className="w-8 h-8 rounded-full border" />
+                  <span className="font-medium">{profile.fullName}</span>
+                  <span className="text-xs text-muted-foreground">{profile.course}</span>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      const res = await fetch('/api/roommate-pair/accept', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
+                        },
+                        body: JSON.stringify({ senderId: profile.id }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        toast({ title: 'Pair request accepted!' });
+                      } else {
+                        toast({ title: 'Error', description: data.error, variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      const res = await fetch('/api/roommate-pair/decline', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
+                        },
+                        body: JSON.stringify({ senderId: profile.id }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        toast({ title: 'Pair request declined.' });
+                      } else {
+                        toast({ title: 'Error', description: data.error, variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    Decline
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {/* Current Pairing Section */}
+        {matchedWithProfile && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-2">Current Roommate</h3>
+            <div className="flex items-center gap-2">
+              <img src={matchedWithProfile.avatarUrl} alt={matchedWithProfile.fullName} className="w-8 h-8 rounded-full border" />
+              <span className="font-medium">{matchedWithProfile.fullName}</span>
+              <span className="text-xs text-muted-foreground">{matchedWithProfile.course}</span>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={async () => {
+                  try {
+                    await Promise.all([
+                      updateDoc(doc(db, 'roommateProfiles', userId), {
+                        matched: false,
+                        matchedWith: null,
+                      }),
+                      updateDoc(doc(db, 'roommateProfiles', matchedWithProfile.id), {
+                        matched: false,
+                        matchedWith: null,
+                      }),
+                    ]);
+                    toast({ title: 'Unpaired successfully. You are now available for pairing.' });
+                  } catch (error: any) {
+                    toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                  }
+                }}
+              >
+                Unpair
+              </Button>
+            </div>
+          </div>
+        )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
              <FormField

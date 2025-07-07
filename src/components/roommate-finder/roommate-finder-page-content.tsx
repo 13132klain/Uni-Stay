@@ -13,12 +13,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, SearchIcon, UserPlusIcon, UsersIcon, MailIcon, LinkIcon, InfoIcon, ShieldAlertIcon } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { collection, query, getDocs, type DocumentData } from 'firebase/firestore';
+import { onSnapshot, collection, query, getDocs, doc, getDoc, type DocumentData, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 interface FetchedRoommateProfile extends DocumentData {
   id: string;
@@ -33,6 +35,9 @@ interface FetchedRoommateProfile extends DocumentData {
   lookingFor?: string;
   preferredContact?: string;
   contactInstructions?: string;
+  matched?: boolean;
+  pairRequests?: string[];
+  matchedWith?: string;
 }
 
 const roommateSearchSchema = z.object({
@@ -54,7 +59,39 @@ const isValidUrl = (url: string) => {
   }
 };
 
-const RoommateProfileCard = ({ profile }: { profile: FetchedRoommateProfile }) => {
+function calculateMatchScore(currentUser: FetchedRoommateProfile, candidate: FetchedRoommateProfile) {
+  let score = 0;
+  if (
+    !currentUser.preferredGender ||
+    currentUser.preferredGender === 'any' ||
+    currentUser.preferredGender === candidate.gender
+  ) {
+    score += 3;
+  }
+  if (currentUser.yearOfStudy && currentUser.yearOfStudy === candidate.yearOfStudy) {
+    score += 2;
+  }
+  if (currentUser.course && currentUser.course === candidate.course) {
+    score += 2;
+  }
+  if (currentUser.interests && candidate.interests) {
+    const shared = currentUser.interests.filter(i =>
+      candidate.interests.map(j => j.toLowerCase()).includes(i.toLowerCase())
+    );
+    score += shared.length;
+  }
+  if (
+    currentUser.lookingFor &&
+    candidate.lookingFor &&
+    currentUser.lookingFor.toLowerCase() === candidate.lookingFor.toLowerCase()
+  ) {
+    score += 1;
+  }
+  return score;
+}
+
+const RoommateProfileCard = ({ profile, currentUserId }: { profile: FetchedRoommateProfile & { matchScore?: number, pairRequests?: string[] }, currentUserId: string }) => {
+  // Remove all pairing state and logic
   const renderContactInfo = () => {
     if (!profile.preferredContact) {
       return <p className="text-xs text-muted-foreground">Contact information not shared.</p>;
@@ -104,6 +141,11 @@ const RoommateProfileCard = ({ profile }: { profile: FetchedRoommateProfile }) =
           <CardTitle className="text-xl">{profile.fullName}</CardTitle>
           <CardDescription>{profile.course} - Year {profile.yearOfStudy}</CardDescription>
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2 h-[40px]">{profile.bio}</p>
+          {profile.matchScore !== undefined && (
+            <div className="text-xs text-green-600 font-semibold mt-1">
+              Compatibility Score: {profile.matchScore}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0 flex-grow space-y-3">
@@ -130,6 +172,7 @@ const RoommateProfileCard = ({ profile }: { profile: FetchedRoommateProfile }) =
       <CardFooter className="p-4 flex flex-col items-start space-y-1">
           <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Contact Information</h4>
           {renderContactInfo()}
+          {/* Pairing button removed: users now only see contact info and reach out off-platform */}
       </CardFooter>
     </Card>
   );
@@ -145,6 +188,7 @@ export default function RoommateFinderPageContent() {
   const [isFetchingProfiles, setIsFetchingProfiles] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [currentUserProfile, setCurrentUserProfile] = useState<FetchedRoommateProfile | null>(null);
 
   const form = useForm<RoommateSearchFormValues>({
     resolver: zodResolver(roommateSearchSchema),
@@ -167,53 +211,67 @@ export default function RoommateFinderPageContent() {
   useEffect(() => {
     if (authLoading || !currentUser) return;
 
-    const fetchProfiles = async () => {
-      setIsFetchingProfiles(true);
-      setError(null);
+    setIsFetchingProfiles(true);
+    setError(null);
+
+    const q = query(collection(db, 'roommateProfiles'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      let fetchedData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        const initials = (data.fullName || "UU").trim().split(' ').map((n:string) => n[0]).join('').toUpperCase().slice(0,2);
+        return {
+          id: doc.id,
+          userId: data.userId || doc.id,
+          fullName: data.fullName || "Unnamed User",
+          avatarUrl: data.avatarUrl || `https://placehold.co/100x100.png?text=${initials}`,
+          course: data.course || "N/A",
+          yearOfStudy: data.yearOfStudy || "N/A",
+          gender: data.gender || "N/A",
+          bio: data.bio || "",
+          interests: Array.isArray(data.interests) ? data.interests : [],
+          lookingFor: data.lookingFor || "",
+          preferredContact: data.preferredContact || "",
+          contactInstructions: data.contactInstructions || "",
+          matched: data.matched || false,
+          pairRequests: data.pairRequests || [],
+          matchedWith: data.matchedWith || undefined,
+        } as FetchedRoommateProfile;
+      });
+
+      if (currentUser) {
+        fetchedData = fetchedData.filter(profile => profile.userId !== currentUser.uid);
+      }
+
+      setAllProfiles(fetchedData);
+      setSearchResults(fetchedData); // Or apply your filters here
+      setIsFetchingProfiles(false);
+
+      if (fetchedData.length === 0) {
+        setError("No other roommate profiles found yet. Check back later or be the first to add yours!");
+      }
+    }, (err) => {
+      setError("Failed to load roommate profiles. Please try again later.");
+      setIsFetchingProfiles(false);
+    });
+
+    return () => unsubscribe();
+  }, [authLoading, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchCurrentUserProfile = async () => {
       try {
-        const profilesCollectionRef = collection(db, 'roommateProfiles');
-        const q = query(profilesCollectionRef);
-        const querySnapshot = await getDocs(q);
-        let fetchedData = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          const initials = (data.fullName || "UU").trim().split(' ').map((n:string) => n[0]).join('').toUpperCase().slice(0,2);
-          return {
-            id: doc.id,
-            userId: data.userId || doc.id,
-            fullName: data.fullName || "Unnamed User",
-            avatarUrl: data.avatarUrl || `https://placehold.co/100x100.png?text=${initials}`,
-            course: data.course || "N/A",
-            yearOfStudy: data.yearOfStudy || "N/A",
-            gender: data.gender || "N/A",
-            bio: data.bio || "",
-            interests: Array.isArray(data.interests) ? data.interests : [],
-            lookingFor: data.lookingFor || "",
-            preferredContact: data.preferredContact || "",
-            contactInstructions: data.contactInstructions || "",
-          } as FetchedRoommateProfile;
-        });
-
-        if (currentUser) {
-          fetchedData = fetchedData.filter(profile => profile.userId !== currentUser.uid);
-        }
-        
-        setAllProfiles(fetchedData);
-        setSearchResults(fetchedData);
-
-        if (fetchedData.length === 0) {
-          setError("No other roommate profiles found yet. Check back later or be the first to add yours!");
+        const docRef = doc(db, 'roommateProfiles', currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setCurrentUserProfile({ id: docSnap.id, ...docSnap.data() } as FetchedRoommateProfile);
         }
       } catch (err) {
-        console.error("Error fetching roommate profiles:", err);
-        setError("Failed to load roommate profiles. Please try again later.");
-        setAllProfiles([]);
-        setSearchResults([]);
-      } finally {
-        setIsFetchingProfiles(false);
+        console.error("Failed to fetch current user's roommate profile", err);
       }
     };
-    fetchProfiles();
-  }, [authLoading, currentUser]);
+    fetchCurrentUserProfile();
+  }, [currentUser]);
 
   async function onSubmit(values: RoommateSearchFormValues) {
     setSearchLoading(true);
@@ -249,6 +307,16 @@ export default function RoommateFinderPageContent() {
 
     if (values.preferredGender && values.preferredGender !== 'any') {
        filteredResults = filteredResults.filter(p => p.gender.toLowerCase() === values.preferredGender.toLowerCase());
+    }
+
+    // Score and sort if currentUserProfile is available
+    if (currentUserProfile) {
+      filteredResults = filteredResults
+        .map(profile => ({
+          ...profile,
+          matchScore: calculateMatchScore(currentUserProfile, profile),
+        }))
+        .sort((a, b) => b.matchScore - a.matchScore);
     }
 
     setSearchResults(filteredResults);
@@ -296,6 +364,8 @@ export default function RoommateFinderPageContent() {
       </div>
     );
   }
+
+  const availableProfiles = searchResults.filter(profile => !profile.matched);
 
   return (
     <div className="space-y-12">
@@ -381,7 +451,12 @@ export default function RoommateFinderPageContent() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full lg:col-span-4 mt-4" disabled={searchLoading || isFetchingProfiles} size="lg">
+              <Button
+                type="submit"
+                className="w-full md:w-auto mt-4"
+                size="sm"
+                disabled={searchLoading || isFetchingProfiles}
+              >
                 {searchLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -394,17 +469,30 @@ export default function RoommateFinderPageContent() {
                   </>
                 )}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full md:w-auto mt-2 md:ml-2"
+                onClick={() => {
+                  form.reset({ course: '', yearOfStudy: 'any', interests: '', preferredGender: 'any' });
+                  setSearchResults(allProfiles);
+                  setError(null);
+                }}
+                disabled={searchLoading || isFetchingProfiles}
+                size="sm"
+              >
+                Clear Filters
+              </Button>
             </form>
           </Form>
         </CardContent>
       </Card>
 
-      {error && !isFetchingProfiles && searchResults.length === 0 && ( // Only show error if not fetching and no results due to error
-         <Card className="shadow-md">
-            <CardContent className="p-6 text-center text-destructive">
-                <p>{error}</p>
-            </CardContent>
-         </Card>
+      {error && (
+        <div className="flex flex-col items-center justify-center py-8">
+          <InfoIcon className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-lg text-muted-foreground font-semibold text-center">{error}</p>
+        </div>
       )}
 
       {!error && searchResults.length === 0 && !isFetchingProfiles && allProfiles.filter(p => p.userId !== currentUser?.uid).length > 0 && (
@@ -430,12 +518,16 @@ export default function RoommateFinderPageContent() {
       )}
 
 
-      {searchResults.length > 0 && (
+      {availableProfiles.length > 0 && (
         <div>
-          <h2 className="text-2xl font-semibold mb-6 text-center md:text-left">Matching Profiles ({searchResults.length})</h2>
+          <h2 className="text-2xl font-semibold mb-6 text-center md:text-left">Matching Profiles ({availableProfiles.length})</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {searchResults.map((profile) => (
-              <RoommateProfileCard key={profile.id} profile={profile} />
+            {availableProfiles.map((profile) => (
+              <RoommateProfileCard
+                key={profile.id}
+                profile={profile}
+                currentUserId={currentUser?.uid}
+              />
             ))}
           </div>
         </div>
