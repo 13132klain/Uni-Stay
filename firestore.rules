@@ -1,0 +1,57 @@
+ service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: Only the user can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Houses: Anyone can read, only the owner or admin can write
+    match /houses/{houseId} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        request.auth.uid == resource.data.ownerId ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // Bookings: Only the user who made the booking, the house owner, or an admin can read/write
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId ||
+        request.auth.token.admin == true
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == resource.data.userId ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // Inquiries: Users can create and read their own inquiries, admins can read and update all
+    match /inquiries/{inquiryId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId || 
+        request.auth.token.admin == true
+      );
+      allow update: if request.auth != null && request.auth.token.admin == true;
+      allow delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Roommate Profiles: Only the user can read/write their own roommate profile
+    match /roommateProfiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Payments: Users can create and read their own payments, admins can read all
+    match /payments/{paymentId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId || 
+        request.auth.token.admin == true
+      );
+      allow update: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}
