@@ -1,5 +1,4 @@
 module.exports = {
-  // ...other config...
   images: {
     remotePatterns: [
       {

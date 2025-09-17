@@ -13,7 +13,9 @@
     "setup:mpesa": "node setup-mpesa.js",
     "mpesa:validate": "node setup-mpesa.js validate",
     "mpesa:register": "node register-c2b.js",
-    "mpesa:test": "node test-mpesa.js"
+    "mpesa:test": "node test-mpesa.js",
+    "netlify:build": "next build",
+    "netlify:dev": "netlify dev"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
