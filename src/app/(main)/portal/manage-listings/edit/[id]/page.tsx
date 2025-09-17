@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import MultipleImageUpload from '@/components/ui/multiple-image-upload';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db, storage } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -31,7 +32,7 @@ const editListingSchema = z.object({
   bedrooms: z.coerce.number().min(0, { message: "Bedrooms cannot be negative." }).max(10),
   bathrooms: z.coerce.number().min(0, { message: "Bathrooms cannot be negative." }).max(10),
   availableUnits: z.coerce.number().min(0, { message: "Available units cannot be negative." }),
-  imageUrl: z.string().url({ message: "Please enter a valid image URL." }),
+  imageUrl: z.string().url({ message: "Please enter a valid image URL." }).optional(),
   imageAiHint: z.string().max(50, {message: "AI hint must be 50 characters or less."}).optional(),
   description: z.string().min(20, { message: "Description must be at least 20 characters." }).max(1000),
   amenities: z.string()
@@ -58,6 +59,7 @@ export default function EditListingPage() {
   const [isFetchingListing, setIsFetchingListing] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<Array<{id: string; url: string; file?: File; uploading?: boolean; error?: string}>>([]);
   
   const router = useRouter();
   const params = useParams();
@@ -142,6 +144,22 @@ export default function EditListingPage() {
           agentName: data.agent.name,
           agentPhone: data.agent.phone,
         });
+        
+        // Load existing images
+        if (data.images && data.images.length > 0) {
+          const existingImages = data.images.map((url, index) => ({
+            id: `existing-${index}`,
+            url: url,
+            uploading: false
+          }));
+          setUploadedImages(existingImages);
+        } else if (data.imageUrl) {
+          setUploadedImages([{
+            id: 'existing-main',
+            url: data.imageUrl,
+            uploading: false
+          }]);
+        }
       } else {
         toast({ title: "Not Found", description: "Listing data not found.", variant: "destructive" });
         router.push('/portal/manage-listings');
@@ -157,12 +175,60 @@ export default function EditListingPage() {
 
 
   async function onSubmit(values: EditListingFormValues) {
-    if (!listingId || !db) {
-        toast({ title: "Error", description: "Listing ID or Firestore is missing for update.", variant: "destructive" });
+    if (!listingId || !db || !storage) {
+        toast({ title: "Error", description: "Listing ID or Firebase is missing for update.", variant: "destructive" });
         return;
     }
     setIsSubmitting(true);
     try {
+      // Upload new images to Firebase Storage
+      const uploadedImageUrls: string[] = [];
+      
+      for (const image of uploadedImages) {
+        if (image.file) {
+          try {
+            const storageRef = ref(storage, `property-images/${Date.now()}-${image.file.name}`);
+            await uploadBytes(storageRef, image.file);
+            const downloadURL = await getDownloadURL(storageRef);
+            uploadedImageUrls.push(downloadURL);
+          } catch (error: any) {
+            console.error("Error uploading image:", error);
+            
+            // Handle CORS errors specifically
+            if (error.code === 'storage/unauthorized' || error.message?.includes('CORS')) {
+              toast({
+                title: "Upload Configuration Issue",
+                description: "Image upload is temporarily unavailable. Please use image URLs instead or contact support.",
+                variant: "destructive",
+                duration: 10000,
+              });
+            } else {
+              toast({
+                title: "Image Upload Failed",
+                description: `Failed to upload ${image.file.name}: ${error.message || 'Unknown error'}`,
+                variant: "destructive",
+              });
+            }
+          }
+        } else if (image.url && image.url.startsWith('http')) {
+          // If it's already a URL (not a file), add it directly
+          uploadedImageUrls.push(image.url);
+        }
+      }
+
+      // Parse URLs from the text input field
+      if (values.imageUrl) {
+        // Support multiple separation methods: newlines, commas, semicolons, spaces
+        const urlLines = values.imageUrl
+          .split(/[\n,;]+/) // Split by newlines, commas, or semicolons
+          .map(url => url.trim())
+          .filter(url => url && url.startsWith('http'));
+        uploadedImageUrls.push(...urlLines);
+      }
+
+      // Use the first uploaded image as the main imageUrl, or fallback to form value
+      const mainImageUrl = uploadedImageUrls[0] || 'https://placehold.co/600x400.png';
+
       const listingDocRef = doc(db, 'houses', listingId);
       const updatedHouseData = {
         name: values.name,
@@ -171,7 +237,8 @@ export default function EditListingPage() {
         bedrooms: values.bedrooms,
         bathrooms: values.bathrooms,
         availableUnits: values.availableUnits,
-        imageUrl: values.imageUrl,
+        imageUrl: mainImageUrl,
+        images: uploadedImageUrls.length > 0 ? uploadedImageUrls : [],
         imageAiHint: values.imageAiHint || "",
         description: values.description,
         amenities: values.amenities ? values.amenities.split(',').map(a => a.trim()).filter(a => a) : [],
@@ -186,7 +253,7 @@ export default function EditListingPage() {
 
       toast({
         title: "Listing Updated!",
-        description: `${values.name} has been successfully updated.`,
+        description: `${values.name} has been updated with ${uploadedImageUrls.length} images.`,
       });
       router.push('/portal/manage-listings'); 
     } catch (error: any) {
@@ -321,19 +388,35 @@ export default function EditListingPage() {
               </div>
               <FormField control={form.control} name="imageUrl" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Property Image</FormLabel>
+                  <FormLabel>Property Images</FormLabel>
                   <FormControl>
-                    <div className="flex flex-col gap-2">
-                      <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
-                      {field.value && (
-                        <img src={field.value} alt="Property Preview" className="h-32 w-auto rounded border mt-2" />
-                      )}
-                      <Input placeholder="Image URL will appear here after upload" {...field} readOnly />
-                      {uploadingImage && <span className="text-xs text-muted-foreground">Uploading image...</span>}
-                      {imageUploadError && <span className="text-xs text-red-500">{imageUploadError}</span>}
+                    <div className="space-y-4">
+                      <MultipleImageUpload
+                        images={uploadedImages}
+                        onImagesChange={setUploadedImages}
+                        maxImages={10}
+                        disabled={isSubmitting}
+                      />
+                      <div className="text-sm text-muted-foreground">
+                        <p>Upload multiple images to showcase your property. The first image will be used as the main display image.</p>
+                        <p className="mt-1">You can also paste image URLs in the field below as an alternative.</p>
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-xs">
+                          <strong>Note:</strong> If file upload fails due to CORS issues, please use image URLs instead. You can upload images to services like Imgur, Google Drive (public), or any image hosting service and paste the direct image URLs below.
+                          <br /><br />
+                          <strong>URL Separation:</strong> You can separate multiple URLs using:
+                          <br />• New lines (press Enter)
+                          <br />• Commas (,)
+                          <br />• Semicolons (;)
+                        </div>
+                      </div>
+                      <Input 
+                        placeholder="Paste image URLs here (separate with newlines, commas, or semicolons)" 
+                        {...field} 
+                        className="min-h-[80px]"
+                      />
                     </div>
                   </FormControl>
-                  <FormDescription>Upload a property image or paste a direct image URL.</FormDescription>
+                  <FormDescription>Upload up to 10 images or paste image URLs. The first image will be the main display image.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />

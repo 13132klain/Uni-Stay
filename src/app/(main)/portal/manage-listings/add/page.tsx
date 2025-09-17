@@ -3,18 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '@hookform/resolvers/zod/dist/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import MultipleImageUpload from '@/components/ui/multiple-image-upload';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db, storage } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Loader2, ShieldAlertIcon, LogInIcon, ArrowLeftIcon, HomeIcon, SaveIcon } from 'lucide-react';
+import { Loader2, ShieldAlertIcon, LogInIcon, ArrowLeftIcon, HomeIcon, SaveIcon, InfoIcon, ExternalLinkIcon } from 'lucide-react';
 import Link from 'next/link';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -29,7 +30,7 @@ const addListingSchema = z.object({
   bedrooms: z.coerce.number().min(0, { message: "Bedrooms cannot be negative." }).max(10),
   bathrooms: z.coerce.number().min(0, { message: "Bathrooms cannot be negative." }).max(10),
   availableUnits: z.coerce.number().min(1, { message: "Available units must be at least 1." }),
-  imageUrl: z.string().url({ message: "Please enter a valid image URL." }), // removed placehold.co restriction
+  imageUrl: z.string().url({ message: "Please enter a valid image URL." }).optional(),
   imageAiHint: z.string().max(50, {message: "AI hint must be 50 characters or less."}).optional(),
   description: z.string().min(20, { message: "Description must be at least 20 characters." }).max(1000),
   amenities: z.string()
@@ -57,6 +58,7 @@ export default function AddListingPage() {
   const { toast } = useToast();
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<Array<{id: string; url: string; file?: File; uploading?: boolean; error?: string}>>([]);
 
   const form = useForm<AddListingFormValues>({
     resolver: zodResolver(addListingSchema),
@@ -107,12 +109,38 @@ export default function AddListingPage() {
   }, [router, toast, auth]);
 
   async function onSubmit(values: AddListingFormValues) {
-    if (!db) {
-      toast({ title: "Firestore Not Initialized", description: "Database is not available.", variant: "destructive" });
+    if (!db || !storage) {
+      toast({ title: "Firebase Not Initialized", description: "Database or storage is not available.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
     try {
+      // Collect uploaded image URLs (uploads are handled automatically by the component)
+      const uploadedImageUrls: string[] = [];
+      
+      for (const image of uploadedImages) {
+        if (image.uploaded && image.url && image.url.startsWith('http')) {
+          // Use successfully uploaded images
+          uploadedImageUrls.push(image.url);
+        } else if (image.url && image.url.startsWith('http') && !image.file) {
+          // Use direct URLs (not files)
+          uploadedImageUrls.push(image.url);
+        }
+      }
+
+      // Parse URLs from the text input field
+      if (values.imageUrl) {
+        // Support multiple separation methods: newlines, commas, semicolons, spaces
+        const urlLines = values.imageUrl
+          .split(/[\n,;]+/) // Split by newlines, commas, or semicolons
+          .map(url => url.trim())
+          .filter(url => url && url.startsWith('http'));
+        uploadedImageUrls.push(...urlLines);
+      }
+
+      // Use the first uploaded image as the main imageUrl, or fallback to form value
+      const mainImageUrl = uploadedImageUrls[0] || 'https://placehold.co/600x400.png';
+
       const newHouseData = {
         name: values.name,
         address: values.address,
@@ -121,7 +149,8 @@ export default function AddListingPage() {
         bathrooms: values.bathrooms,
         availableUnits: values.availableUnits,
         totalUnits: values.availableUnits,
-        imageUrl: values.imageUrl,
+        imageUrl: mainImageUrl,
+        images: uploadedImageUrls.length > 0 ? uploadedImageUrls : [],
         imageAiHint: values.imageAiHint || "",
         description: values.description,
         amenities: values.amenities ? values.amenities.split(',').map(a => a.trim()).filter(a => a) : [],
@@ -131,15 +160,17 @@ export default function AddListingPage() {
         },
         createdAt: serverTimestamp(),
         ownerId: currentUser?.uid,
+        status: 'available',
       };
 
       await addDoc(collection(db, 'houses'), newHouseData);
 
       toast({
-        title: "Listing Added to Firestore!",
-        description: `${values.name} has been successfully saved.`,
+        title: "Listing Added Successfully!",
+        description: `${values.name} has been saved with ${uploadedImageUrls.length} images.`,
       });
       form.reset();
+      setUploadedImages([]);
       router.push('/portal/manage-listings'); 
     } catch (error: any) {
       console.error("Error adding listing to Firestore:", error);
@@ -284,19 +315,48 @@ export default function AddListingPage() {
               </div>
               <FormField control={form.control} name="imageUrl" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Property Image</FormLabel>
+                  <FormLabel>Property Images</FormLabel>
                   <FormControl>
-                    <div className="flex flex-col gap-2">
-                      <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
-                      {field.value && (
-                        <img src={field.value} alt="Property Preview" className="h-32 w-auto rounded border mt-2" />
-                      )}
-                      <Input placeholder="Image URL will appear here after upload" {...field} readOnly />
-                      {uploadingImage && <span className="text-xs text-muted-foreground">Uploading image...</span>}
-                      {imageUploadError && <span className="text-xs text-red-500">{imageUploadError}</span>}
+                    <div className="space-y-4">
+                      <MultipleImageUpload
+                        images={uploadedImages}
+                        onImagesChange={setUploadedImages}
+                        maxImages={10}
+                        disabled={isSubmitting}
+                        autoUpload={true}
+                      />
+                      <div className="text-sm text-muted-foreground">
+                        <p>Upload multiple images to showcase your property. The first image will be used as the main display image.</p>
+                        <p className="mt-1">You can also paste image URLs in the field below as an alternative.</p>
+                        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs">
+                          <div className="flex items-start gap-2">
+                            <InfoIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <strong>Image URL Examples:</strong>
+                              <br /><br />
+                              <strong>✅ Working URLs:</strong>
+                              <br />• Imgur: <code className="bg-blue-100 px-1 rounded">https://i.imgur.com/abc123.jpg</code>
+                              <br />• Google Drive: <code className="bg-blue-100 px-1 rounded">https://drive.google.com/uc?export=view&id=FILE_ID</code>
+                              <br />• Unsplash: <code className="bg-blue-100 px-1 rounded">https://images.unsplash.com/photo-1234567890</code>
+                              <br />• Placeholder: <code className="bg-blue-100 px-1 rounded">https://picsum.photos/800/600</code>
+                              <br /><br />
+                              <strong>❌ Don't use:</strong>
+                              <br />• Google Drive sharing links: <code className="bg-red-100 px-1 rounded">https://drive.google.com/file/d/.../view</code>
+                              <br /><br />
+                              <strong>URL Separation:</strong> Separate multiple URLs with:
+                              <br />• New lines (press Enter) • Commas (,) • Semicolons (;)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <Input 
+                        placeholder="Paste image URLs here (separate with newlines, commas, or semicolons)" 
+                        {...field} 
+                        className="min-h-[80px]"
+                      />
                     </div>
                   </FormControl>
-                  <FormDescription>Upload a property image or paste a direct image URL.</FormDescription>
+                  <FormDescription>Upload up to 10 images or paste image URLs. The first image will be the main display image.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />

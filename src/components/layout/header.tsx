@@ -4,13 +4,14 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
-import { MenuIcon, HomeIcon, ListIcon, UsersIcon, LifeBuoyIcon, UserPlusIcon, LogInIcon, LogOutIcon, UserCircle, CogIcon, ShieldCheckIcon, HeartIcon, Settings2Icon, Building2Icon } from 'lucide-react'; // Added Building2Icon
+import { MenuIcon, HomeIcon, ListIcon, UsersIcon, LifeBuoyIcon, UserPlusIcon, LogInIcon, LogOutIcon, UserCircle, CogIcon, ShieldCheckIcon, HeartIcon, Settings2Icon, Building2Icon, ShirtIcon, ShoppingBagIcon } from 'lucide-react';
 import NavLink from './nav-link';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -26,6 +27,8 @@ const navItems = [
   { href: '/', label: 'Home', icon: HomeIcon },
   { href: '/listings', label: 'Listings', icon: ListIcon },
   { href: '/roommate-finder', label: 'Roommate Finder', icon: UsersIcon },
+  { href: '/laundry', label: 'Laundry', icon: ShirtIcon },
+  { href: '/marketplace', label: 'Marketplace', icon: ShoppingBagIcon },
   { href: '/support', label: 'Support', icon: LifeBuoyIcon },
 ];
 
@@ -33,10 +36,13 @@ export default function Header() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
+    let cartUnsubscribe: (() => void) | undefined;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -47,17 +53,55 @@ export default function Header() {
            if (idTokenResult.claims.admin !== true) {
              console.warn("Header: User is NOT an admin. Claims:", idTokenResult.claims);
           }
+          
+          // Set up real-time cart count listener
+          cartUnsubscribe = loadCartCount(currentUser.uid);
         } catch (error) {
           console.error("Header: Error fetching custom claims:", error);
           setIsUserAdmin(false);
         }
       } else {
         setIsUserAdmin(false);
+        setCartCount(0);
+        // Clean up cart listener if user logs out
+        if (cartUnsubscribe) {
+          cartUnsubscribe();
+        }
       }
       setIsLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      if (cartUnsubscribe) {
+        cartUnsubscribe();
+      }
+    };
   }, []);
+
+  const loadCartCount = (userId: string) => {
+    try {
+      const cartQuery = query(
+        collection(db, 'cart'),
+        where('userId', '==', userId)
+      );
+      
+      // Set up real-time listener for cart count
+      const unsubscribe = onSnapshot(cartQuery, (snapshot) => {
+        setCartCount(snapshot.size);
+      }, (error) => {
+        console.error('Error listening to cart count:', error);
+        setCartCount(0);
+      });
+
+      // Return unsubscribe function to clean up listener
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error setting up cart count listener:', error);
+      setCartCount(0);
+      return () => {}; // Return empty function if error
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -128,6 +172,27 @@ export default function Header() {
         </nav>
 
         <div className="flex flex-1 items-center justify-end space-x-2">
+          {user && (
+            <>
+              <Button variant="ghost" size="icon" asChild>
+                <Link href="/wishlist">
+                  <HeartIcon className="h-5 w-5" />
+                  <span className="sr-only">Wishlist</span>
+                </Link>
+              </Button>
+              <Button variant="ghost" size="icon" asChild className="relative">
+                <Link href="/cart">
+                  <ShoppingBagIcon className="h-5 w-5" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
+                  )}
+                  <span className="sr-only">Shopping Cart</span>
+                </Link>
+              </Button>
+            </>
+          )}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -177,6 +242,12 @@ export default function Header() {
                           Manage Listings
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/admin/marketplace">
+                          <ShoppingBagIcon className="mr-2 h-4 w-4" />
+                          Manage Marketplace
+                        </Link>
+                      </DropdownMenuItem>
                     </DropdownMenuGroup>
                   </>
                 )}
@@ -222,6 +293,16 @@ export default function Header() {
                   {user ? (
                     <>
                      <SheetClose asChild>
+                        <NavLink href="/wishlist" icon={HeartIcon} className="text-lg p-2 rounded-md hover:bg-muted w-full justify-start mb-2">
+                             Wishlist
+                        </NavLink>
+                      </SheetClose>
+                     <SheetClose asChild>
+                        <NavLink href="/cart" icon={ShoppingBagIcon} className="text-lg p-2 rounded-md hover:bg-muted w-full justify-start mb-2">
+                             Shopping Cart {cartCount > 0 && `(${cartCount})`}
+                        </NavLink>
+                      </SheetClose>
+                     <SheetClose asChild>
                         <NavLink href="/profile" icon={UserCircle} className="text-lg p-2 rounded-md hover:bg-muted w-full justify-start mb-2">
                              Profile
                         </NavLink>
@@ -240,8 +321,13 @@ export default function Header() {
                             </NavLink>
                           </SheetClose>
                            <SheetClose asChild>
-                            <NavLink href="/portal/manage-listings" icon={Settings2Icon} className="text-lg p-2 rounded-md hover:bg-muted w-full justify-start mb-2">
+                            <NavLink href="/portal/manage-listings" icon={Settings2Icon} className="text-lg p-2 rounded-md hover:bg-muted w-full justify-start mb-1">
                                  Manage Listings
+                            </NavLink>
+                          </SheetClose>
+                          <SheetClose asChild>
+                            <NavLink href="/admin/marketplace" icon={ShoppingBagIcon} className="text-lg p-2 rounded-md hover:bg-muted w-full justify-start mb-2">
+                                 Manage Marketplace
                             </NavLink>
                           </SheetClose>
                         </>

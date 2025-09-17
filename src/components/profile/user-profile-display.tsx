@@ -12,7 +12,7 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
-import { createCanvas } from 'canvas';
+// import { createCanvas } from 'canvas'; // Removed for Windows compatibility
 
 type UserProfileDisplayProps = {
   userId: string;
@@ -186,11 +186,18 @@ export default function UserProfileDisplay({ userId }: UserProfileDisplayProps) 
     doc.setTextColor(orange);
     doc.text('Thank you for booking with UniStay!', 105, 123, { align: 'center' });
 
-    // Barcode for booking ID
-    const canvas = createCanvas();
-    JsBarcode(canvas, booking.id, { format: 'CODE128', width: 2, height: 40, displayValue: false });
-    const barcodeDataUrl = canvas.toDataURL('image/png');
-    doc.addImage(barcodeDataUrl, 'PNG', 55, 135, 100, 20);
+    // Barcode for booking ID (Windows-compatible version)
+    try {
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, booking.id, { format: 'CODE128', width: 2, height: 40, displayValue: false });
+      const barcodeDataUrl = canvas.toDataURL('image/png');
+      doc.addImage(barcodeDataUrl, 'PNG', 55, 135, 100, 20);
+    } catch (error) {
+      console.warn('Barcode generation failed:', error);
+      // Fallback: just add the booking ID as text
+      doc.setFontSize(10);
+      doc.text(`Booking ID: ${booking.id}`, 55, 145);
+    }
 
     // Footer
     doc.setFontSize(10);

@@ -389,8 +389,148 @@ export default function AdminBookingsList() {
     }
   };
 
+  // Helper functions for print styling
+  const getStatusColor = (status: Booking['status']) => {
+    switch (status) {
+      case 'confirmed': return '#d4edda';
+      case 'pending': return '#fff3cd';
+      case 'rejected': return '#f8d7da';
+      case 'cancelled': return '#f8d7da';
+      case 'awaiting_manual_payment': return '#ffeaa7';
+      case 'pending_admin_confirmation': return '#74b9ff';
+      default: return '#e9ecef';
+    }
+  };
+
+  const getStatusTextColor = (status: Booking['status']) => {
+    switch (status) {
+      case 'confirmed': return '#155724';
+      case 'pending': return '#856404';
+      case 'rejected': return '#721c24';
+      case 'cancelled': return '#721c24';
+      case 'awaiting_manual_payment': return '#6c5ce7';
+      case 'pending_admin_confirmation': return '#0984e3';
+      default: return '#495057';
+    }
+  };
+
   const handlePrint = () => {
-    window.print();
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    // Get the table content
+    const tableElement = document.querySelector('.printable-table-container');
+    if (!tableElement) return;
+
+    // Create a clean table for printing
+    const cleanTableHTML = `
+      <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <thead>
+          <tr style="background-color: #f5f5f5;">
+            <th style="border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; font-weight: bold;">House Name</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; font-weight: bold;">Tenant Email</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; font-weight: bold;">Booking Fee</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; font-weight: bold;">Move-in Date</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; font-weight: bold;">Guests</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; font-weight: bold;">Status</th>
+            <th style="border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; font-weight: bold;">Requested At</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filteredBookings.map(booking => `
+            <tr>
+              <td style="border: 1px solid #000; padding: 8px; font-size: 12px;">${booking.houseName}</td>
+              <td style="border: 1px solid #000; padding: 8px; font-size: 12px;">${booking.userEmail || booking.userId}</td>
+              <td style="border: 1px solid #000; padding: 8px; font-size: 12px;">${typeof booking.bookingFee === 'number' ? `Ksh ${booking.bookingFee.toLocaleString()}` : 'N/A'}</td>
+              <td style="border: 1px solid #000; padding: 8px; font-size: 12px;">${formatMoveInDate(booking.moveInDate)}</td>
+              <td style="border: 1px solid #000; padding: 8px; font-size: 12px;">${booking.guests}</td>
+              <td style="border: 1px solid #000; padding: 8px; font-size: 12px;">
+                <span style="padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; background-color: ${getStatusColor(booking.status)}; color: ${getStatusTextColor(booking.status)};">
+                  ${booking.status.replace(/_/g, ' ')}
+                </span>
+              </td>
+              <td style="border: 1px solid #000; padding: 8px; font-size: 12px;">${formatDate(booking.requestedAt)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    // Create print-friendly HTML
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Booking Requests Report</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+              color: #000;
+            }
+            .print-header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 20px;
+            }
+            .print-header h1 {
+              margin: 0;
+              font-size: 24px;
+              color: #000;
+            }
+            .print-header p {
+              margin: 5px 0 0 0;
+              color: #666;
+            }
+            .print-date {
+              text-align: right;
+              margin-bottom: 20px;
+              font-size: 12px;
+              color: #666;
+            }
+            .print-footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 10px;
+              color: #666;
+              border-top: 1px solid #ccc;
+              padding-top: 10px;
+            }
+            @media print {
+              body { margin: 0; }
+              .print-header { page-break-after: avoid; }
+              table { page-break-inside: auto; }
+              tr { page-break-inside: avoid; page-break-after: auto; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <h1>Uni-Stay Booking Requests Report</h1>
+            <p>Property Booking Management System</p>
+          </div>
+          <div class="print-date">
+            Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+          </div>
+          ${cleanTableHTML}
+          <div class="print-footer">
+            <p>This report was generated from the Uni-Stay Admin Dashboard</p>
+            <p>Total Bookings: ${filteredBookings.length}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
   };
 
   if (loading) {
@@ -415,7 +555,38 @@ export default function AdminBookingsList() {
   }
 
   return (
-    <div className="space-y-8">
+    <>
+      {/* Print-specific styles */}
+      <style jsx>{`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          .print-only {
+            display: inline-block !important;
+          }
+          .printable-table-container {
+            box-shadow: none !important;
+            border: 1px solid #000 !important;
+          }
+          .printable-table-container table {
+            font-size: 12px !important;
+          }
+          .printable-table-container th,
+          .printable-table-container td {
+            border: 1px solid #000 !important;
+            padding: 4px !important;
+          }
+          .printable-table-container th {
+            background-color: #f5f5f5 !important;
+            font-weight: bold !important;
+          }
+        }
+        .print-only {
+          display: none;
+        }
+      `}</style>
+      <div className="space-y-8">
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-3">
           <h2 className="text-xl font-semibold flex items-center">
@@ -527,6 +698,10 @@ export default function AdminBookingsList() {
                       {getStatusIcon(booking.status)}
                       {booking.status.replace(/_/g, ' ')}
                     </Badge>
+                    {/* Print-friendly status for printing */}
+                    <span className={`status-badge status-${booking.status} print-only`} style={{ display: 'none' }}>
+                      {booking.status.replace(/_/g, ' ').toUpperCase()}
+                    </span>
                   </TableCell>
                   <TableCell>{formatDate(booking.requestedAt)}</TableCell>
                   <TableCell>{formatDate(booking.paymentConfirmedByTenantAt)}</TableCell>
@@ -639,6 +814,7 @@ export default function AdminBookingsList() {
           </Table>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

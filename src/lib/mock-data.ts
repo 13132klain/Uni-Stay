@@ -7,6 +7,7 @@ export type House = {
   bedrooms: number;
   bathrooms: number;
   imageUrl: string;
+  images?: string[]; // Multiple images for gallery
   description: string;
   amenities: string[];
   agent: {
@@ -30,7 +31,12 @@ export const mockHouses: House[] = [
     price: 10000,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'modern studio',
     description: 'A bright and modern studio apartment perfect for a single student. Recently renovated with new appliances and furniture. Located just a 5-minute walk from the main campus gate.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Kitchenette', 'Furnished', 'Secure Parking', '24/7 Security', 'Security'],
@@ -44,7 +50,12 @@ export const mockHouses: House[] = [
     price: 18000,
     bedrooms: 2,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'spacious flat',
     description: 'Comfortable 2-bedroom flat suitable for sharing. Features a large living area, a fully equipped kitchen, and ample storage space. Located in a quiet residential area with easy access to public transport.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Full Kitchen', 'Balcony', 'Laundry Facilities', 'Gated Community'],
@@ -58,7 +69,12 @@ export const mockHouses: House[] = [
     price: 7500,
     bedrooms: 1,
     bathrooms: 0, // Shared
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'hostel room',
     description: 'An affordable and cozy single room within a well-maintained student hostel. Access to shared modern bathrooms and a communal kitchen. Great for students looking for a budget-friendly option.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Shared Kitchen', 'Shared Bathroom', 'Common Room', 'Cleaning Services'],
@@ -72,7 +88,12 @@ export const mockHouses: House[] = [
     price: 15000,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'luxury annex',
     description: 'A premium 1-bedroom annex with high-end finishes and a private entrance. Offers a peaceful and secure environment, ideal for focused study. Includes a small garden space.',
     amenities: ['Water', 'Electricity', 'High-speed WiFi', 'Security', 'Modern Kitchen', 'Private Garden', 'Furnished', 'Backup Generator', 'WiFi'],
@@ -86,7 +107,12 @@ export const mockHouses: House[] = [
     price: 6000, // Per person
     bedrooms: 1, // Room is shared
     bathrooms: 1, // Shared with roommate
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'twin room',
     description: 'Economical twin-sharing room, perfect for students looking to save on rent. Comes with two beds, study desks, and wardrobes. Close to local amenities and transport links.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Study Desks', 'Wardrobes', 'Shared Bathroom', 'Near Shops'],
@@ -100,7 +126,12 @@ export const mockHouses: House[] = [
     price: 25000,
     bedrooms: 3,
     bathrooms: 2,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'townhouse exterior',
     description: 'A spacious 3-bedroom townhouse in a quiet, family-friendly neighborhood. Ideal for a group of students. Features a large living room, dining area, and a private backyard.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Full Kitchen', 'Dining Area', 'Backyard', 'Parking for 2 Cars', 'Pet-friendly (small pets)'],
@@ -114,7 +145,12 @@ export const mockHouses: House[] = [
     price: 5500,
     bedrooms: 0, 
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'compact bedsitter',
     description: 'A compact and affordable bedsitter in Kianjai, suitable for a single student. Basic amenities provided, close to local shops and Kianjai market.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Kitchenette'],
@@ -128,7 +164,12 @@ export const mockHouses: House[] = [
     price: 9000,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'kirindine flat',
     description: 'Well-maintained 1-bedroom apartment in Kirindine. Offers a good balance of space and affordability. Secure compound with ample parking.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Furnished', 'Parking', 'Balcony'],
@@ -142,7 +183,12 @@ export const mockHouses: House[] = [
     price: 22000, 
     bedrooms: 4,
     bathrooms: 2,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'student house',
     description: 'Large 4-bedroom house in Kunene, perfect for a group of students. Shared living room and kitchen. Walking distance to one of the university annexes.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Full Kitchen', 'Common Room', 'Laundry Area'],
@@ -156,7 +202,12 @@ export const mockHouses: House[] = [
     price: 6500,
     bedrooms: 0,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'estate studio',
     description: 'Neat bedsitter in the popular California estate area. Secure environment and close proximity to the university via public transport.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Gated Community', 'Near Public Transport'],
@@ -170,7 +221,12 @@ export const mockHouses: House[] = [
     price: 16000,
     bedrooms: 2,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'furnished unit',
     description: 'A fully furnished 2-bedroom apartment in Mascan. Ideal for students looking for a ready-to-move-in option. Includes essential furniture and kitchen appliances.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Full Kitchen', 'Furnished', 'TV Included'],
@@ -184,7 +240,12 @@ export const mockHouses: House[] = [
     price: 8000,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'ensuite room',
     description: 'Private single room with its own bathroom in Kaidhe. Offers more privacy than shared facilities. Quiet area suitable for study.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Ensuite Bathroom', 'Study Area'],
@@ -198,7 +259,12 @@ export const mockHouses: House[] = [
     price: 9500,
     bedrooms: 0, 
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'gateb studio',
     description: 'Convenient studio located very close to Meru University Gate B. Perfect for students who want quick access to campus. Modern finishes.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Kitchenette', 'Modern Finishes'],
@@ -212,7 +278,12 @@ export const mockHouses: House[] = [
     price: 28000,
     bedrooms: 3,
     bathrooms: 2,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'gatimbi bungalow',
     description: 'Spacious 3-bedroom bungalow in Gatimbi. Features a private compound and garden. Suitable for a group or students seeking more space.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Full Kitchen', 'Private Compound', 'Garden'],
@@ -226,7 +297,12 @@ export const mockHouses: House[] = [
     price: 6000,
     bedrooms: 0,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'kianjai bedsitter',
     description: 'A well-secured bedsitter in Kianjai, offering peace of mind. Compact and functional, ideal for a single student prioritizing safety and affordability.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', '24/7 Security', 'Kitchenette'],
@@ -240,7 +316,12 @@ export const mockHouses: House[] = [
     price: 8500,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'campus view',
     description: 'Single room with a balcony offering a view towards the university. Modern and well-maintained building with good amenities.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Balcony', 'Furnished'],
@@ -254,7 +335,12 @@ export const mockHouses: House[] = [
     price: 11000,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'kunene cottage',
     description: 'Charming one-bedroom cottage in a quiet estate in Kunene. Offers more space than a typical apartment, with a small private yard.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Kitchenette', 'Private Yard', 'Gated Community'],
@@ -268,7 +354,12 @@ export const mockHouses: House[] = [
     price: 5000,
     bedrooms: 0,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'budget studio',
     description: 'Very affordable bedsitter in California, perfect for students on a tight budget. Basic but clean and secure.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Near Shops'],
@@ -282,7 +373,12 @@ export const mockHouses: House[] = [
     price: 7000,
     bedrooms: 1,
     bathrooms: 0, // Shared bathroom
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'mascan room',
     description: 'Single room in a modern apartment block in Mascan. Shared bathroom and kitchen facilities, kept clean and tidy. Good security.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Shared Kitchen', 'Shared Bathroom', 'Cleaning Services'],
@@ -296,7 +392,12 @@ export const mockHouses: House[] = [
     price: 12500,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'kaidhe apartment',
     description: 'Spacious one-bedroom apartment in Kaidhe, with premium finishes and fittings. Located conveniently close to the university.',
     amenities: ['Water', 'Electricity', 'High-speed WiFi', 'Security', 'Modern Kitchen', 'Furnished', 'Parking', 'WiFi'],
@@ -310,7 +411,12 @@ export const mockHouses: House[] = [
     price: 6800,
     bedrooms: 0,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'nchiru bedsitter',
     description: 'Extremely convenient bedsitter located right next to the main campus gate. Ideal for students who value proximity above all.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Kitchenette'],
@@ -324,7 +430,12 @@ export const mockHouses: House[] = [
     price: 7200,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'highway room',
     description: 'Well-located single room with private bathroom along the main highway in Nchiru. Easy access to transport and campus.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Ensuite Bathroom'],
@@ -338,7 +449,12 @@ export const mockHouses: House[] = [
     price: 5800,
     bedrooms: 0,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'market view',
     description: 'Bedsitter with a view of Kianjai market, offering a vibrant atmosphere. Compact and affordable for single students.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Kitchenette'],
@@ -352,7 +468,12 @@ export const mockHouses: House[] = [
     price: 11500,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'gatea apartment',
     description: 'Modern one-bedroom apartment very close to University Gate A. Secure complex with modern amenities for comfortable student living.',
     amenities: ['Water', 'Electricity', 'High-speed WiFi', 'Security', 'Modern Kitchen', 'Furnished', 'Parking', 'Gated Community', 'WiFi'],
@@ -366,7 +487,12 @@ export const mockHouses: House[] = [
     price: 6500,
     bedrooms: 1, 
     bathrooms: 0, 
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     imageAiHint: 'student pod',
     description: 'Compact and efficient student pod room in Nchiru. Designed for single occupancy with shared modern kitchen and bathroom facilities. Very secure.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security', 'Shared Kitchen', 'Shared Bathroom', '24/7 Security', 'Study Area'],
@@ -380,7 +506,12 @@ export const mockHouses: House[] = [
     price: 12000,
     bedrooms: 1,
     bathrooms: 1,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=800&h=600&fit=crop'
+    ],
     description: 'Modern apartment block with 10 units.',
     amenities: ['Water', 'Electricity', 'WiFi', 'Security'],
     agent: { name: 'Grey Demnos Agent', phone: '0700000000' },
@@ -427,7 +558,7 @@ export const mockRoommateProfiles: RoommateProfile[] = [
     id: 'rm1',
     userId: 'user1',
     fullName: 'Alex Mwangi',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
     course: 'BSc. Computer Science',
     yearOfStudy: 2,
     gender: 'male',
@@ -439,7 +570,7 @@ export const mockRoommateProfiles: RoommateProfile[] = [
     id: 'rm2',
     userId: 'user2',
     fullName: 'Brenda Chepkoech',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
     course: 'B.A. Communication',
     yearOfStudy: 3,
     gender: 'female',
@@ -451,7 +582,7 @@ export const mockRoommateProfiles: RoommateProfile[] = [
     id: 'rm3',
     userId: 'user3',
     fullName: 'Samira Ali',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
     course: 'BSc. Nursing',
     yearOfStudy: 1,
     gender: 'female',
@@ -463,7 +594,7 @@ export const mockRoommateProfiles: RoommateProfile[] = [
     id: 'rm4',
     userId: 'user4',
     fullName: 'David Kimani',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
     course: 'B. Engineering (Mechanical)',
     yearOfStudy: 4,
     gender: 'male',
@@ -475,7 +606,7 @@ export const mockRoommateProfiles: RoommateProfile[] = [
     id: 'rm5',
     userId: 'user5',
     fullName: 'Chris Otieno',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
     course: 'MSc. Data Science',
     yearOfStudy: 'Postgraduate',
     gender: 'male',
